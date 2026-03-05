@@ -1,12 +1,22 @@
 import { Stage, Layer, Line } from "react-konva";
 import useCanvas from "../../hooks/useCanvas";
+import { useGameStore } from "../../store/gameStore";
 
-export default function DrawingCanvas() {
-  const { lines, startDrawing, draw, stopDrawing } = useCanvas();
+type Props = {
+  canvas: ReturnType<typeof useCanvas>;
+};
+
+export default function DrawingCanvas({ canvas }: Props) {
+  const { lines, startDrawing, draw, stopDrawing } = canvas;
+
+  const color = useGameStore((s) => s.color);
+  const brushSize = useGameStore((s) => s.brushSize);
+  const tool = useGameStore((s) => s.tool);
 
   const handleMouseDown = (e: any) => {
     const pos = e.target.getStage().getPointerPosition();
-    startDrawing(pos);
+
+    startDrawing(pos, tool === "eraser" ? "white" : color, brushSize);
   };
 
   const handleMouseMove = (e: any) => {
@@ -28,8 +38,8 @@ export default function DrawingCanvas() {
           <Line
             key={i}
             points={line.points}
-            stroke="black"
-            strokeWidth={5}
+            stroke={line.color}
+            strokeWidth={line.size}
             tension={0.5}
             lineCap="round"
           />

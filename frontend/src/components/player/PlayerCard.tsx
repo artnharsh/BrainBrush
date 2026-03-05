@@ -7,11 +7,9 @@ type Props = {
 export default function PlayerCard({ name }: Props) {
   return (
     <div className="flex items-center justify-between p-2 border rounded">
-
       <span>{name}</span>
 
-      <LatencyIndicator latency={42} />
-
+      <LatencyIndicator />
     </div>
   );
 }

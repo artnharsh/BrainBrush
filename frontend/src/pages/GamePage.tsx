@@ -7,27 +7,29 @@ import BrushSelector from "../components/toolbar/BrushSelector";
 import ColorPalette from "../components/toolbar/ColorPalette";
 import Eraser from "../components/toolbar/Eraser";
 
+import useCanvas from "../hooks/useCanvas";
+import ClearCanvas from "../components/toolbar/ClearCanvas";
+
 export default function GamePage() {
   const { roomId } = useParams();
 
+  const canvas = useCanvas();
+
   return (
     <div className="h-screen flex flex-col">
-
       {/* Main Game Area */}
       <div className="flex flex-1">
-
         <div className="w-1/5 border-r p-3">
           <PlayerList />
         </div>
 
         <div className="flex-1 flex items-center justify-center">
-          <DrawingCanvas />
+          <DrawingCanvas canvas={canvas} />
         </div>
 
         <div className="w-1/4 border-l p-3">
           <ChatBox />
         </div>
-
       </div>
 
       {/* Toolbar */}
@@ -35,8 +37,8 @@ export default function GamePage() {
         <BrushSelector />
         <ColorPalette />
         <Eraser />
+        <ClearCanvas canvas={canvas} />
       </div>
-
     </div>
   );
 }
