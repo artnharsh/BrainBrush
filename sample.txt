@@ -1,0 +1,45 @@
+backend
+│   
+├── config
+|   ├── db.js
+│   ├── redis.js
+│   └── env.js
+|   
+├── controllers
+│   ├── authController.js
+│   ├── roomController.js
+│   └── userController.js
+│
+├── models
+│   ├── User.js
+│   ├── Room.js
+│   └── GameHistory.js
+│
+├── routes
+│   ├── authRoutes.js
+│   ├── roomRoutes.js
+│   └── userRoutes.js
+│
+├── sockets
+│   ├── socketHandler.js
+│   ├── gameEvents.js
+│   └── drawingEvents.js
+│
+├── services
+│   ├── gameService.js
+│   ├── scoringService.js
+│   └── roomService.js
+│
+├── middleware
+│   ├── authMiddleware.js
+│   └── errorMiddleware.js
+│
+├── utils
+│   ├── wordGenerator.js
+│   └── timer.js
+│
+└── server.js
+│
+├── Dockerfile
+├── package.json
+└── .env
