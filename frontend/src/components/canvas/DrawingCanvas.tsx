@@ -4,9 +4,11 @@ import { useGameStore } from "../../store/gameStore";
 
 type Props = {
   canvas: ReturnType<typeof useCanvas>;
+  onDrawStart: (line: any) => void;
+  onDrawMove: (point: { x: number; y: number }) => void;
 };
 
-export default function DrawingCanvas({ canvas }: Props) {
+export default function DrawingCanvas({ canvas, onDrawStart, onDrawMove }: Props) {
   const { lines, startDrawing, draw, stopDrawing } = canvas;
 
   const color = useGameStore((s) => s.color);
@@ -16,13 +18,28 @@ export default function DrawingCanvas({ canvas }: Props) {
   const handleMouseDown = (e: any) => {
     const pos = e.target.getStage().getPointerPosition();
 
-    startDrawing(pos, tool === "eraser" ? "white" : color, brushSize);
+    const newLine = {
+      points: [pos.x, pos.y],
+      color: tool === "eraser" ? "white" : color,
+      size: brushSize,
+    };
+
+    startDrawing(pos, newLine.color, newLine.size);
+
+    onDrawStart(newLine);
+
   };
 
   const handleMouseMove = (e: any) => {
+
     const pos = e.target.getStage().getPointerPosition();
+
     draw(pos);
+
+    onDrawMove(pos);
   };
+
+  
 
   return (
     <Stage

@@ -1,5 +1,6 @@
 import { useParams } from "react-router-dom";
 
+import useSocket from "../hooks/useSocket";
 import PlayerList from "../components/player/PlayerList";
 import DrawingCanvas from "../components/canvas/DrawingCanvas";
 import ChatBox from "../components/chat/ChatBox";
@@ -9,11 +10,33 @@ import Eraser from "../components/toolbar/Eraser";
 
 import useCanvas from "../hooks/useCanvas";
 import ClearCanvas from "../components/toolbar/ClearCanvas";
+import { useEffect } from "react";
 
 export default function GamePage() {
-  const { roomId } = useParams();
+  const socket = useSocket();
 
+  const { roomId } = useParams();
   const canvas = useCanvas();
+
+  useEffect(() => {
+    if (!socket) return;
+
+    socket.emit("join_room", roomId);
+  }, [socket, roomId]);
+
+  const handleDrawStart = (line: any) => {
+    socket?.emit("draw_start", {
+      roomId,
+      line,
+    });
+  };
+
+  const handleDrawMove = (point: { x: number; y: number }) => {
+    socket?.emit("draw_move", {
+      roomId,
+      point,
+    });
+  };
 
   return (
     <div className="h-screen flex flex-col">
@@ -24,7 +47,11 @@ export default function GamePage() {
         </div>
 
         <div className="flex-1 flex items-center justify-center">
-          <DrawingCanvas canvas={canvas} />
+          <DrawingCanvas
+            canvas={canvas}
+            onDrawStart={handleDrawStart}
+            onDrawMove={handleDrawMove}
+          />
         </div>
 
         <div className="w-1/4 border-l p-3">
