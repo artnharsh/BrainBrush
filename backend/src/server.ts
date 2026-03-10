@@ -3,6 +3,7 @@ import dotenv from "dotenv";
 import {Server} from "socket.io";
 import app from "./app";
 import connectDB from "./config/db";
+import "./config/redis";
 
 dotenv.config();
 
