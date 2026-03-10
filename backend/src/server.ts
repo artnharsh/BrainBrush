@@ -2,6 +2,7 @@ import http from "http";
 import dotenv from "dotenv";
 import {Server} from "socket.io";
 import app from "./app";
+import connectDB from "./config/db";
 
 dotenv.config();
 
@@ -23,6 +24,12 @@ io.on("connection", (socket) => {
     });
 });
 
-server.listen(PORT, () => {
-    console.log(`Server is running on port ${PORT}`);
-});
+const startServer = async() => {
+    await connectDB();
+
+    server.listen(PORT, () => {
+      console.log(`Server is running on port ${PORT}`);
+    });
+}
+
+startServer();
