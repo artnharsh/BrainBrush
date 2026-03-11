@@ -1,0 +1,150 @@
+Redis (in this project)
+What is Redis?
+
+Redis is an in-memory key–value database.
+Data is stored in RAM, so it is extremely fast (milliseconds).
+Commonly used for caching, sessions, real-time data, pub/sub systems.
+
+------------------------------------------------------------------
+------------------------------------------------------------------
+
+Why we use Redis in the Scribble Project
+
+MongoDB is persistent but slower.
+A real-time game needs very fast reads/writes.
+
+Redis is used because:
+
+Game state changes every second
+Players join/leave rooms frequently
+Scores and turns update instantly
+So Redis handles temporary fast data, while MongoDB stores permanent data.
+
+------------------------------------------------------------------
+------------------------------------------------------------------
+
+docker run -d -p 6379:6379 redis
+
+Explanation:
+
+-d → run in background
+-p → map port
+6379 → Redis default port
+
+------------------------------------------------------------------
+------------------------------------------------------------------
+
+Backend (Node.js)
+        │
+        │ TCP connection
+        ▼
+127.0.0.1:6379
+        │
+        ▼
+Redis server inside Docker container
+Docker’s port mapping makes the container behave like a local server.
+
+------------------------------------------------------------------
+------------------------------------------------------------------
+
+How Google OAuth Actually Works (short)
+
+Flow:
+
+User clicks "Login with Google"
+        │
+        ▼
+Frontend → /auth/google
+        │
+        ▼
+Google login page
+        │
+User signs in
+        │
+        ▼
+Google sends user data → /auth/google/callback
+        │
+        ▼
+Passport verifies user
+        │
+        ▼
+User stored/fetched from MongoDB
+        │
+        ▼
+Session created
+Why OAuth is used here
+
+Instead of building:
+
+signup
+login
+password reset
+email verification
+security
+
+You outsource authentication to Google, which is more secure and easier.
+
+What Passport is doing
+
+Passport handles:
+
+Google authentication
+session creation
+user serialization
+login state
+
+Your job is only to store the user in DB.
+
+------------------------------------------------------------------
+------------------------------------------------------------------
+
+How JWT Works (Short Explanation)
+
+JWT is basically a signed identity token.
+
+Example payload:
+
+{
+  "id": "user123",
+  "iat": 171000000,
+  "exp": 171060000
+}
+
+Flow:
+
+User logs in with Google
+        │
+Backend creates JWT
+        │
+Frontend stores token
+        │
+Frontend sends token in request header
+        │
+Backend verifies token
+        │
+User allowed to access protected routes
+
+Header example:
+
+Authorization: Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...
+
+------------------------------------------------------------------
+------------------------------------------------------------------
+
+Why JWT is used here
+
+Without JWT:
+
+Every request → check session in DB
+
+With JWT:
+
+Token itself contains user identity
+No DB lookup needed
+
+Faster and stateless.
+
+Google OAuth → Passport
+Authorization → JWT
+Game state → Redis
+Data → MongoDB
