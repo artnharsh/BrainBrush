@@ -3,11 +3,13 @@ import cors from "cors";
 import session from "express-session";
 import passport from "./config/passport";
 import authRoutes from "./routes/authRoutes";
+import { errorHandler } from "./middlewares/errorMiddleware";
 
 const app = express();
 
 app.use(cors());
 app.use(express.json());
+app.use(errorHandler);
 
 app.use(
     session({
