@@ -175,3 +175,38 @@ MongoDB stores match
 ------------------------------------------------------------------
 ------------------------------------------------------------------
 
+How Socket Authentication Works
+
+When frontend connects:
+
+const socket = io("http://localhost:5000", {
+  auth: {
+    token: JWT_TOKEN
+  }
+});
+
+Backend receives:
+
+socket.handshake.auth.token
+
+Then:
+
+verify JWT
+attach user id to socket
+allow connection
+
+Why JWT Validation is Critical
+
+Without this step:
+
+anyone could connect to your socket server
+join rooms
+send guesses
+manipulate games
+
+So socket auth is mandatory.
+
+------------------------------------------------------------------
+------------------------------------------------------------------
+
+
