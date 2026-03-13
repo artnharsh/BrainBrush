@@ -4,6 +4,7 @@ import session from "express-session";
 import passport from "./config/passport";
 import authRoutes from "./routes/authRoutes";
 import { errorHandler } from "./middlewares/errorMiddleware";
+import roomRoutes from "./routes/roomRoutes";
 
 const app = express();
 
@@ -23,9 +24,11 @@ app.use(passport.initialize());
 app.use(passport.session());
 
 app.use("/auth", authRoutes);
+app.use("/api", roomRoutes);
 
 app.get("/", (req, res) => {
     res.send("Scribble Backend is Running");
 });
+
 
 export default app;
