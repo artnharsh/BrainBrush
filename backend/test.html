@@ -1,0 +1,41 @@
+<script src="https://cdn.socket.io/4.7.2/socket.io.min.js"></script>
+
+<script>
+
+// auth Route
+// http://localhost:5000/auth/google
+
+const socket = io("http://localhost:5000", {
+  auth: {
+    token: "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpZCI6IjY5YjQxNzI1NTBjZjJlZTAzNTMwODIzMyIsImlhdCI6MTc3MzQyNDYxMCwiZXhwIjoxNzc0MDI5NDEwfQ.rcJqGmMNMyYG_rjrhRFD-ecSDBO_5YDJ7i8hSrhil1c"
+  }
+});
+
+socket.on("connect", () => {
+  console.log("Connected:", socket.id);
+});
+
+socket.on("room_created", (data) => {
+  console.log("Room Created:", data);
+});
+
+socket.on("player_list", (players) => {
+  console.log("Players:", players);
+});
+
+function createRoom() {
+  socket.emit("create_room");
+}
+
+function joinRoom() {
+  socket.emit("join_room", "ROOMCODE");
+}
+
+function leaveRoom() {
+  socket.emit("leave_room", "ROOMCODE");
+}
+</script>
+
+<button onclick="createRoom()">Create Room</button>
+<button onclick="joinRoom()">Join Room</button>
+<button onclick="leaveRoom()">Leave Room</button>

@@ -1,43 +1,51 @@
-import Room from '../models/Room';
+import redis from "../config/redis";
 
 const generateRoomCode = () => {
-    return Math.random().toString(36).substring(2, 8).toUpperCase();
+  return Math.random().toString(36).substring(2, 8).toUpperCase();
 };
 
-export const createRoomService = async (userId: string) => {
-    const roomCode = generateRoomCode();
+const ROOM_TTL = 3600; // 1 hour in seconds
 
-    const room = await Room.create({
-        roomCode,
-        host: userId,
-        players: [userId]
-    });
-    return room;
+export const createRoom = async (userId: string) => {
+  const roomCode = generateRoomCode();
+
+  // Set the host and players
+  await redis.set(`room:${roomCode}:host`, userId);
+  await redis.sadd(`room:${roomCode}:players`, userId);
+
+  // Expire BOTH keys so nothing is left behind!
+  await redis.expire(`room:${roomCode}:host`, ROOM_TTL);
+  await redis.expire(`room:${roomCode}:players`, ROOM_TTL);
+
+  // Return as an object so `const { roomCode } = await createRoom()` works
+  return { roomCode, players: [userId] };
 };
 
-export const joinRoomService = async(roomCode: string, userId: string) => {
-    
-    const room = await Room.findOne({ roomCode });
+export const joinRoom = async (roomCode: string, userId: string) => {
+  const exists = await redis.exists(`room:${roomCode}:players`);
 
-    if(!room) {
-        throw new Error("Room not found");
-    }
+  if (!exists) throw new Error("Room not found");
 
-    if(room.players.length >= room.maxPlayers) {
-        throw new Error("Room is full");
-    };
+  await redis.sadd(`room:${roomCode}:players`, userId);
 
-    room.players.push(userId as any);
+  const players = await redis.smembers(`room:${roomCode}:players`);
 
-    await room.save();
-    return room;
+  // Return as an object to match the socket file expectation
+  return { players };
 };
 
-export const getRoomService = async (roomCode: string) => {
-    const room = await Room.findOne({ roomCode }).populate("host").populate("players");
+export const leaveRoom = async (roomCode: string, userId: string) => {
+  // Remove the user
+  await redis.srem(`room:${roomCode}:players`, userId);
 
-    if(!room) {
-        throw new Error("Room not found");
-    };
-    return room;
+  const players = await redis.smembers(`room:${roomCode}:players`);
+
+  // If room is empty, clean it up early
+  if (players.length === 0) {
+    await redis.del(`room:${roomCode}:players`);
+    await redis.del(`room:${roomCode}:host`);
+  }
+
+  // Return as an object
+  return { players };
 };

@@ -1,0 +1,85 @@
+1️⃣ Download RedisInsight
+
+Go to:
+
+https://redis.com/redis-enterprise/redis-insight/
+
+Download and install.
+
+2️⃣ Open RedisInsight
+
+When it opens, click:
+
+Add Redis Database
+
+Fill:
+
+Host: 127.0.0.1
+Port: 6379
+Name: Scribble Redis
+
+Click Add.
+
+3️⃣ Run Your Backend
+
+Start the server:
+
+npm run dev
+
+Then run your socket test (create room / join room).
+
+4️⃣ Check Redis Data
+
+In RedisInsight open Browser → Keys.
+
+You should see keys like:
+
+room:AB12CD:host
+room:AB12CD:players
+
+Click the key.
+
+Example:
+
+room:AB12CD:host
+→ user123
+room:AB12CD:players
+→ user123
+→ user456
+5️⃣ Test Join / Leave
+
+When a player joins:
+
+room:AB12CD:players
+user1
+user2
+user3
+
+When someone leaves:
+
+room:AB12CD:players
+user1
+user3
+
+When last player leaves:
+
+room deleted automatically
+6️⃣ What This Helps With
+
+RedisInsight lets you visually verify:
+
+room creation
+players joining
+players leaving
+TTL expiration
+room deletion
+
+Instead of guessing what Redis is doing.
+
+Short note you can store
+RedisInsight → GUI tool to inspect Redis data.
+
+Used to:
+- view keys
+- inspect room state
+- debug multiplayer state

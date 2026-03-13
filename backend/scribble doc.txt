@@ -209,4 +209,167 @@ So socket auth is mandatory.
 ------------------------------------------------------------------
 ------------------------------------------------------------------
 
+Using Redis Keys Instead of JSON Objects
+
+You chose this structure:
+
+room:AB12CD:host
+room:AB12CD:players
+
+Example in Redis:
+
+room:AB12CD:host     → user123
+room:AB12CD:players  → {user123,user456,user789}
+
+Why this is good:
+
+atomic operations
+no race conditions
+fast lookups
+easy cleanup
+
+Instead of storing:
+
+room:AB12CD → JSON object
+
+which causes race conditions.
+
+------------------------------------------------------------------
+------------------------------------------------------------------
+
+3️⃣ Redis Set for Players
+await redis.sadd(`room:${roomCode}:players`, userId);
+
+A Redis Set guarantees:
+
+no duplicates
+atomic operations
+fast membership checks
+
+Example:
+
+SADD room:AB12CD:players user1
+SADD room:AB12CD:players user2
+
+Even if two users join simultaneously:
+
+both get added correctly
+
+No overwriting.
+
+This fixes the race condition problem.
+
+------------------------------------------------------------------
+------------------------------------------------------------------
+
+4️⃣ ROOM_TTL
+const ROOM_TTL = 3600;
+
+Then:
+
+await redis.expire(key, ROOM_TTL);
+
+Purpose:
+
+automatic room cleanup
+
+If your server crashes or players leave without calling leave_room:
+
+Redis will delete the room after 1 hour
+
+Without TTL:
+
+rooms stay in RAM forever
+→ memory leak
+→ Redis crash
+
+------------------------------------------------------------------
+------------------------------------------------------------------
+
+5️⃣ Why exists() in joinRoom
+const exists = await redis.exists(`room:${roomCode}:players`);
+
+Purpose:
+
+prevent joining invalid rooms
+
+Example:
+
+join_room ABC123
+
+If the room doesn't exist:
+
+throw error
+
+Without this check:
+
+------------------------------------------------------------------
+------------------------------------------------------------------
+
+players could create rooms accidentally
+6️⃣ Why smembers()
+const players = await redis.smembers(`room:${roomCode}:players`);
+
+Purpose:
+
+get the current player list
+
+This list is then broadcast:
+
+io.to(roomCode).emit("player_list", players)
+
+So all clients update the lobby UI.
+
+------------------------------------------------------------------
+------------------------------------------------------------------
+
+7️⃣ Why We Delete the Room When Empty
+if (players.length === 0) {
+  await redis.del(`room:${roomCode}:players`);
+  await redis.del(`room:${roomCode}:host`);
+}
+
+Purpose:
+
+prevent ghost rooms
+
+Without this:
+
+room exists but players = []
+
+Which causes problems like:
+
+joining dead rooms
+UI confusion
+memory waste
+
+So the room is deleted immediately when the last player leaves.
+
+------------------------------------------------------------------
+------------------------------------------------------------------
+
+8️⃣ Why Return Objects
+
+Example:
+
+return { roomCode, players: [userId] };
+
+Instead of:
+
+return roomCode
+
+Because your socket layer likely does:
+
+const { roomCode } = await createRoom(userId);
+
+or
+
+const { players } = await joinRoom(roomCode, userId);
+
+So returning objects keeps the socket code clean.
+
+------------------------------------------------------------------
+------------------------------------------------------------------
+
+
 
