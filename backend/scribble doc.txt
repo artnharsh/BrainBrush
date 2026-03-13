@@ -148,3 +148,30 @@ Google OAuth → Passport
 Authorization → JWT
 Game state → Redis
 Data → MongoDB
+
+------------------------------------------------------------------
+------------------------------------------------------------------
+
+MongoDB → persistent data
+Redis → live game state
+REST APIs → room creation / joining
+Socket.io → real-time gameplay
+
+------------------------------------------------------------------
+------------------------------------------------------------------
+
+Day: 7
+Game finishes
+      │
+      ▼
+Calculate winner
+      │
+      ▼
+POST /save-game
+      │
+      ▼
+MongoDB stores match
+
+------------------------------------------------------------------
+------------------------------------------------------------------
+
