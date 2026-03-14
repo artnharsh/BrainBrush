@@ -1,41 +1,151 @@
-<script src="https://cdn.socket.io/4.7.2/socket.io.min.js"></script>
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>Socket Room Test</title>
+    <script src="https://cdn.socket.io/4.7.2/socket.io.min.js"></script>
+    <style>
+        body { font-family: sans-serif; padding: 20px; background: #f4f4f9; }
+        .container { background: white; padding: 20px; border-radius: 8px; max-width: 400px; margin-bottom: 20px; box-shadow: 0 2px 10px rgba(0,0,0,0.1); }
+        .hidden { display: none; }
+        input, button { padding: 8px; margin: 5px 0; width: 100%; box-sizing: border-box; }
+        button { cursor: pointer; background: #007bff; color: white; border: none; border-radius: 4px; }
+        button:hover { background: #0056b3; }
+        button.danger { background: #dc3545; }
+        button.danger:hover { background: #a71d2a; }
+    </style>
+</head>
+<body>
 
-<script>
+    <div id="auth-section" class="container">
+        <h3>Step 1: Authenticate</h3>
+        <button onclick="login()">Fetch Token & Connect</button>
+        <p id="auth-status" style="font-size: 0.9em; color: gray;">Not connected</p>
+    </div>
 
-// auth Route
-// http://localhost:5000/auth/google
+    <div id="lobby-section" class="container hidden">
+        <h3>Step 2: Lobby</h3>
+        <button onclick="createRoom()">Create New Room</button>
+        
+        <hr style="margin: 20px 0;">
+        
+        <input type="text" id="join-room-input" placeholder="Enter Room Code (e.g. A1B2C3)">
+        <button onclick="joinRoom()">Join Room</button>
+    </div>
 
-const socket = io("http://localhost:5000", {
-  auth: {
-    token: "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpZCI6IjY5YjQxNzI1NTBjZjJlZTAzNTMwODIzMyIsImlhdCI6MTc3MzQyNDYxMCwiZXhwIjoxNzc0MDI5NDEwfQ.rcJqGmMNMyYG_rjrhRFD-ecSDBO_5YDJ7i8hSrhil1c"
-  }
-});
+    <div id="room-section" class="container hidden">
+        <h3>Room Code: <span id="current-room-display" style="color: #007bff;"></span></h3>
+        <h4>Players in Room:</h4>
+        <ul id="player-list-display"></ul>
+        <button class="danger" onclick="leaveRoom()">Leave Room</button>
+    </div>
 
-socket.on("connect", () => {
-  console.log("Connected:", socket.id);
-});
+    <script>
+        let socket;
+        let currentRoomCode = null;
 
-socket.on("room_created", (data) => {
-  console.log("Room Created:", data);
-});
+        // --- 1. AUTHENTICATION ---
+        async function login() {
+            try {
+                document.getElementById("auth-status").innerText = "Authenticating...";
 
-socket.on("player_list", (players) => {
-  console.log("Players:", players);
-});
+                // --- If your backend returns a JSON token, uncomment this: ---
+                /*
+                const response = await fetch("http://localhost:5000/auth/google");
+                const data = await response.json();
+                const token = data.token;
+                */
 
-function createRoom() {
-  socket.emit("create_room");
-}
+                // For testing purposes, we simulate getting the token:
+                const token = prompt("Paste your JWT Token here:", "eyJhbGciOiJIUzI1NiIs...");
+                
+                if (!token) {
+                    document.getElementById("auth-status").innerText = "Token required!";
+                    return;
+                }
 
-function joinRoom() {
-  socket.emit("join_room", "ROOMCODE");
-}
+                connectSocket(token);
+            } catch (error) {
+                console.error("Login error:", error);
+                document.getElementById("auth-status").innerText = "Failed to connect.";
+            }
+        }
 
-function leaveRoom() {
-  socket.emit("leave_room", "ROOMCODE");
-}
-</script>
+        // --- 2. SOCKET SETUP ---
+        function connectSocket(token) {
+            socket = io("http://localhost:5000", {
+                auth: { token: token }
+            });
 
-<button onclick="createRoom()">Create Room</button>
-<button onclick="joinRoom()">Join Room</button>
-<button onclick="leaveRoom()">Leave Room</button>
+            socket.on("connect", () => {
+                console.log("Connected:", socket.id);
+                document.getElementById("auth-section").classList.add("hidden");
+                document.getElementById("lobby-section").classList.remove("hidden");
+            });
+
+            // Listen for successful room creation
+            socket.on("room_created", (data) => {
+                console.log("Room Created:", data);
+                currentRoomCode = data.roomCode;
+                showRoomUI([socket.id]); // The creator is the only player initially
+            });
+
+            // Listen for updates to the player list
+            socket.on("player_list", (players) => {
+                console.log("Players updated:", players);
+                
+                // If we just joined from the input box, grab the code from the input
+                if (!currentRoomCode) {
+                    currentRoomCode = document.getElementById("join-room-input").value.trim().toUpperCase();
+                }
+                showRoomUI(players);
+            });
+
+            // Listen for errors from your backend
+            socket.on("error", (msg) => {
+                alert("Server Error: " + msg);
+            });
+        }
+
+        // --- 3. ROOM ACTIONS ---
+        function createRoom() {
+            socket.emit("create_room");
+        }
+
+        function joinRoom() {
+            const code = document.getElementById("join-room-input").value.trim().toUpperCase();
+            if (!code) return alert("Please enter a room code.");
+            
+            socket.emit("join_room", code);
+        }
+
+        function leaveRoom() {
+            if (!currentRoomCode) return;
+            
+            socket.emit("leave_room", currentRoomCode);
+            
+            // Reset state and go back to lobby
+            currentRoomCode = null;
+            document.getElementById("join-room-input").value = "";
+            document.getElementById("room-section").classList.add("hidden");
+            document.getElementById("lobby-section").classList.remove("hidden");
+        }
+
+        // --- 4. UI HELPERS ---
+        function showRoomUI(players) {
+            document.getElementById("lobby-section").classList.add("hidden");
+            document.getElementById("room-section").classList.remove("hidden");
+            document.getElementById("current-room-display").innerText = currentRoomCode;
+
+            // Clear the list and repopulate it
+            const listElement = document.getElementById("player-list-display");
+            listElement.innerHTML = "";
+            players.forEach(p => {
+                const li = document.createElement("li");
+                li.innerText = p;
+                listElement.appendChild(li);
+            });
+        }
+    </script>
+</body>
+</html>
