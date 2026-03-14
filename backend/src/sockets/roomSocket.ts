@@ -1,20 +1,18 @@
 import { Server } from "socket.io";
 import { AuthenticatedSocket } from "../types/socketTypes";
-import { createRoom, joinRoom, leaveRoom } from "../services/roomService";
+import { createRoomRedis, joinRoomRedis, leaveRoomRedis } from "../services/roomService";
+import { startGame, nextTurn } from "../services/gameService"; // <-- IMPORT GAME SERVICES
+import redis from "../config/redis"; // <-- IMPORT REDIS
 
 export const roomSocket = (io: Server, socket: AuthenticatedSocket) => {
   // --- CREATE ROOM ---
   socket.on("create_room", async () => {
     try {
       const userId = socket.user?.id;
-
-      // Safe check instead of using userId!
       if (!userId) {
         return socket.emit("error", "User not authenticated");
       }
-
-      const { roomCode } = await createRoom(userId);
-
+      const { roomCode } = await createRoomRedis(userId);
       socket.join(roomCode);
       socket.emit("room_created", { roomCode });
     } catch (error) {
@@ -30,19 +28,15 @@ export const roomSocket = (io: Server, socket: AuthenticatedSocket) => {
   socket.on("join_room", async (roomCode: string) => {
     try {
       const userId = socket.user?.id;
-
       if (!userId) {
         return socket.emit("error", "User not authenticated");
       }
-
-      // If the room is full or doesn't exist, this throws an error directly to the catch block
-      const room = await joinRoom(roomCode, userId);
-
+      const room = await joinRoomRedis(roomCode, userId);
       socket.join(roomCode);
       io.to(roomCode).emit("player_list", room.players);
     } catch (error) {
       if (error instanceof Error) {
-        socket.emit("error", error.message); // E.g., sends "Room is full" to the frontend
+        socket.emit("error", error.message);
       } else {
         socket.emit("error", "Failed to join room");
       }
@@ -53,16 +47,11 @@ export const roomSocket = (io: Server, socket: AuthenticatedSocket) => {
   socket.on("leave_room", async (roomCode: string) => {
     try {
       const userId = socket.user?.id;
-
       if (!userId) {
         return socket.emit("error", "User not authenticated");
       }
-
-      const room = await leaveRoom(roomCode, userId);
-
+      const room = await leaveRoomRedis(roomCode, userId);
       socket.leave(roomCode);
-
-      // We only emit the player list if the room wasn't destroyed when the last player left
       if (room && room.players) {
         io.to(roomCode).emit("player_list", room.players);
       }
@@ -72,6 +61,69 @@ export const roomSocket = (io: Server, socket: AuthenticatedSocket) => {
       } else {
         socket.emit("error", "Failed to leave room");
       }
+    }
+  });
+
+  // ==========================================
+  // NEW GAME LOOP LISTENERS BELOW
+  // ==========================================
+
+  // --- START GAME ---
+  socket.on("start_game", async (roomCode: string) => {
+    try {
+      // 1. Get the current players from the Redis set
+      const players = await redis.smembers(`room:${roomCode}:players`);
+
+      // Safety check: Don't start a game with just 1 person!
+      // (Comment this out temporarily if you are testing alone in one tab)
+      if (players.length < 2) {
+        return socket.emit(
+          "error",
+          "Need at least 2 players to start the game!",
+        );
+      }
+
+      // 2. Initialize the game state in Redis
+      const gameState = await startGame(roomCode, players);
+
+      // 3. Broadcast the starting state to everyone in the room
+      io.to(roomCode).emit("game_started", gameState);
+    } catch (error) {
+      if (error instanceof Error) socket.emit("error", error.message);
+    }
+  });
+
+  // --- NEXT TURN ---
+  socket.on("next_turn", async (roomCode: string) => {
+    try {
+      const { game, isGameOver } = await nextTurn(roomCode);
+
+      if (isGameOver) {
+        io.to(roomCode).emit("game_over", game);
+      } else {
+        io.to(roomCode).emit("turn_updated", game);
+      }
+    } catch (error) {
+      if (error instanceof Error) socket.emit("error", error.message);
+    }
+  });
+
+  // --- HANDLE DISCONNECTS ---
+  socket.on("disconnecting", async () => {
+    try {
+      const userId = socket.user?.id;
+      if (!userId) return;
+
+      for (const roomCode of socket.rooms) {
+        if (roomCode !== socket.id) {
+          const room = await leaveRoomRedis(roomCode, userId);
+          if (room && room.players) {
+            io.to(roomCode).emit("player_list", room.players);
+          }
+        }
+      }
+    } catch (error) {
+      console.error("Error cleaning up after socket disconnect:", error);
     }
   });
 };

@@ -371,5 +371,81 @@ So returning objects keeps the socket code clean.
 ------------------------------------------------------------------
 ------------------------------------------------------------------
 
+Why Drawing Doesn't Use Redis
 
+Drawing events are:
+
+very frequent
+temporary
+high volume
+
+Example:
+
+200 draw events per second
+
+Saving them in Redis would:
+
+waste memory
+slow the system
+
+So drawing is handled purely through sockets.
+Drawing system uses Socket.io only.
+
+draw_line → broadcast drawing data
+clear_canvas → reset board
+
+No Redis because drawing events are temporary.
+
+------------------------------------------------------------------
+------------------------------------------------------------------
+
+Why switching to Pure WebSockets??
+The Core Concept: Two Different Doors
+Think of your roomService.ts (which talks to Redis) as the "Brain" of your room logic.
+
+Your frontend needs a way to talk to this Brain. In web development, there are two main "doors" you can use to get there:
+
+The HTTP Door (REST APIs): This is what you deleted. It uses app.post('/create-room') and Controllers. It is a one-time transaction: the client knocks, asks for a room, the server gives a room code, and the door slams shut.
+
+The WebSocket Door: This is what we are using now. The client walks in, sits down, and keeps an open, continuous radio channel with the server.
+
+The Old Workflow (Hybrid)
+Before you deleted those files, your app was doing extra, unnecessary work. Here was the flow:
+
+Frontend sends an HTTP POST request to /api/create-room.
+
+Route (roomRoutes.ts) catches the /create-room URL.
+
+Controller (roomController.ts) checks the user ID and calls createRoomRedis().
+
+Backend replies with the room code.
+
+Then, the frontend opens a WebSocket connection and says, "Hey, put me in the room I just created."
+
+It worked, but you were using both doors for the same task.
+
+The New Workflow (Pure WebSockets)
+By deleting the Express routes and controllers, we completely boarded up the HTTP door. Now, everything goes through the WebSocket door. Your roomSocket.ts file is literally acting as your new "Controller" and "Route" rolled into one.
+
+Here is the exact step-by-step workflow of your app right now:
+
+Step 1: The Persistent Connection
+When the user logs in and loads the lobby, your frontend runs io("http://localhost:5000"). The client and server shake hands and open a permanent, two-way pipe.
+
+Step 2: The "Route" (The Event)
+Instead of making an HTTP fetch request to a URL, the frontend simply yells into the pipe:
+socket.emit("create_room")
+
+Step 3: The "Controller" (The Listener)
+Inside your roomSocket.ts file, your backend is constantly listening to that pipe. It hears the "create_room" event.
+Just like your old Express controller, it extracts the userId, does a safety check, and calls the exact same createRoomRedis(userId) function from your Service layer.
+
+Step 4: The Database (Redis)
+roomService.ts does the heavy lifting. It generates the A1B2C3 code, saves the host and players to Redis, and sets the 1-hour expiration timer. It returns the data back to the socket listener.
+
+Step 5: The "Response" (The Broadcast)
+Instead of using res.status(200).json(...) like an HTTP controller, the socket listener uses socket.emit("room_created", { roomCode }) to instantly push the result back down the pipe to the frontend.
+
+------------------------------------------------------------------
+------------------------------------------------------------------
 

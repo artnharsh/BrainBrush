@@ -6,7 +6,7 @@ const generateRoomCode = () => {
 
 const ROOM_TTL = 3600; // 1 hour in seconds
 
-export const createRoom = async (userId: string) => {
+export const createRoomRedis = async (userId: string) => {
   const roomCode = generateRoomCode();
 
   // Set the host and players
@@ -21,7 +21,7 @@ export const createRoom = async (userId: string) => {
   return { roomCode, players: [userId] };
 };
 
-export const joinRoom = async (roomCode: string, userId: string) => {
+export const joinRoomRedis = async (roomCode: string, userId: string) => {
   const exists = await redis.exists(`room:${roomCode}:players`);
 
   if (!exists) throw new Error("Room not found");
@@ -34,7 +34,7 @@ export const joinRoom = async (roomCode: string, userId: string) => {
   return { players };
 };
 
-export const leaveRoom = async (roomCode: string, userId: string) => {
+export const leaveRoomRedis = async (roomCode: string, userId: string) => {
   // Remove the user
   await redis.srem(`room:${roomCode}:players`, userId);
 
@@ -48,4 +48,15 @@ export const leaveRoom = async (roomCode: string, userId: string) => {
 
   // Return as an object
   return { players };
+};
+
+// Add this to the bottom of your roomService.ts
+export const getRoomRedis = async (roomCode: string) => {
+  const exists = await redis.exists(`room:${roomCode}:players`);
+  if (!exists) throw new Error("Room not found");
+
+  const players = await redis.smembers(`room:${roomCode}:players`);
+  const host = await redis.get(`room:${roomCode}:host`);
+
+  return { roomCode, host, players };
 };
