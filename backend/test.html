@@ -1,363 +1,308 @@
-<!doctype html>
+<!DOCTYPE html>
 <html lang="en">
-  <head>
-    <meta charset="UTF-8" />
-    <title>Socket Skribbl Test</title>
+<head>
+    <meta charset="UTF-8">
+    <title>Socket Skribbl Test - Day 12</title>
     <script src="https://cdn.socket.io/4.7.2/socket.io.min.js"></script>
     <style>
-      body {
-        font-family: sans-serif;
-        padding: 20px;
-        background: #f4f4f9;
-        display: flex;
-        gap: 20px;
-        align-items: flex-start;
-      }
-      .container {
-        background: white;
-        padding: 20px;
-        border-radius: 8px;
-        width: 350px;
-        box-shadow: 0 2px 10px rgba(0, 0, 0, 0.1);
-      }
-      .hidden {
-        display: none !important;
-      }
-      input,
-      button {
-        padding: 8px;
-        margin: 5px 0;
-        width: 100%;
-        box-sizing: border-box;
-      }
-      button {
-        cursor: pointer;
-        background: #007bff;
-        color: white;
-        border: none;
-        border-radius: 4px;
-        font-weight: bold;
-      }
-      button:hover {
-        background: #0056b3;
-      }
-      button.danger {
-        background: #dc3545;
-      }
-      button.success {
-        background: #28a745;
-      }
-      hr {
-        border: 1px solid #eee;
-        margin: 15px 0;
-      }
+        body { font-family: sans-serif; padding: 20px; background: #f4f4f9; display: flex; gap: 20px; align-items: flex-start; flex-wrap: wrap; }
+        .container { background: white; padding: 20px; border-radius: 8px; width: 350px; box-shadow: 0 2px 10px rgba(0,0,0,0.1); margin-bottom: 20px; }
+        .hidden { display: none !important; }
+        input, button { padding: 8px; margin: 5px 0; width: 100%; box-sizing: border-box; }
+        button { cursor: pointer; background: #007bff; color: white; border: none; border-radius: 4px; font-weight: bold; }
+        button:hover { background: #0056b3; }
+        button.danger { background: #dc3545; }
+        button.success { background: #28a745; }
+        hr { border: 1px solid #eee; margin: 15px 0; }
+        
+        /* Canvas Styles */
+        .canvas-container { background: white; padding: 20px; border-radius: 8px; box-shadow: 0 2px 10px rgba(0,0,0,0.1); display: flex; flex-direction: column; width: 600px; }
+        canvas { border: 2px solid #333; cursor: crosshair; background: #fff; margin-bottom: 10px; width: 100%; }
+        .tools { display: flex; gap: 10px; }
 
-      /* Canvas Styles */
-      .canvas-container {
-        background: white;
-        padding: 20px;
-        border-radius: 8px;
-        box-shadow: 0 2px 10px rgba(0, 0, 0, 0.1);
-        display: flex;
-        flex-direction: column;
-      }
-      canvas {
-        border: 2px solid #333;
-        cursor: crosshair;
-        background: #fff;
-        margin-bottom: 10px;
-      }
-      .tools {
-        display: flex;
-        gap: 10px;
-      }
+        /* Chat Styles */
+        #chat-box { height: 200px; overflow-y: auto; border: 1px solid #ccc; padding: 10px; background: #fafafa; border-radius: 4px; margin-bottom: 10px; font-size: 0.9em; }
+        .msg-normal { color: #333; margin-bottom: 5px; }
+        .msg-success { color: #28a745; font-weight: bold; margin-bottom: 5px; background: #e8f5e9; padding: 5px; border-radius: 4px; }
     </style>
-  </head>
-  <body>
+</head>
+<body>
+
     <div>
-      <div id="auth-section" class="container">
-        <h3>Step 1: Authenticate</h3>
-        <button onclick="login()">Fetch Token & Connect</button>
-        <p id="auth-status" style="font-size: 0.9em; color: gray">
-          Not connected
-        </p>
-      </div>
+        <div id="auth-section" class="container">
+            <h3>Step 1: Authenticate</h3>
+            <button onclick="login()">Fetch Token & Connect</button>
+            <p id="auth-status" style="font-size: 0.9em; color: gray;">Not connected</p>
+        </div>
 
-      <div id="lobby-section" class="container hidden">
-        <h3>Step 2: Lobby</h3>
-        <button onclick="createRoom()">Create New Room</button>
-        <hr />
-        <input type="text" id="join-room-input" placeholder="Enter Room Code" />
-        <button onclick="joinRoom()">Join Room</button>
-      </div>
+        <div id="lobby-section" class="container hidden">
+            <h3>Step 2: Lobby</h3>
+            <button onclick="createRoom()">Create New Room</button>
+            <hr>
+            <input type="text" id="join-room-input" placeholder="Enter Room Code">
+            <button onclick="joinRoom()">Join Room</button>
+        </div>
 
-      <div id="room-section" class="container hidden">
-        <h3>
-          Room: <span id="current-room-display" style="color: #007bff"></span>
-        </h3>
-        <h4>Players:</h4>
-        <ul id="player-list-display"></ul>
-
-        <hr />
-        <button
-          class="success"
-          onclick="triggerStartGame()"
-          id="start-game-btn"
-        >
-          Start Game
-        </button>
-        <button onclick="triggerNextTurn()" id="next-turn-btn" class="hidden">
-          Next Turn
-        </button>
-        <button class="danger" onclick="leaveRoom()">Leave Room</button>
-      </div>
-
-      <div
-        id="game-info"
-        class="container hidden"
-        style="border: 3px solid #28a745; margin-top: 20px"
-      >
-        <h3 style="color: #28a745; margin-top: 0">Game Active!</h3>
-        <p>
-          <strong>Round:</strong> <span id="round-display"></span> /
-          <span id="total-rounds-display"></span>
-        </p>
-        <p>
-          <strong>Drawer:</strong>
-          <span
-            id="drawer-display"
-            style="color: red; font-weight: bold"
-          ></span>
-        </p>
-      </div>
+        <div id="room-section" class="container hidden">
+            <h3>Room: <span id="current-room-display" style="color: #007bff;"></span></h3>
+            
+            <button class="success" onclick="triggerStartGame()" id="start-game-btn">Start Game</button>
+            <button onclick="triggerNextTurn()" id="next-turn-btn" class="hidden">Next Turn</button>
+            <button class="danger" onclick="leaveRoom()">Leave Room</button>
+            
+            <hr>
+            <h4>Live Scores:</h4>
+            <ul id="player-list-display"></ul>
+        </div>
+        
+        <div id="chat-section" class="container hidden">
+            <h3 style="margin-top: 0;">Chat & Guesses</h3>
+            <div id="chat-box"></div>
+            <div style="display: flex; gap: 5px;">
+                <input type="text" id="chat-input" placeholder="Type your guess..." onkeypress="handleEnter(event)">
+                <button onclick="sendGuess()" style="width: 80px;">Send</button>
+            </div>
+        </div>
     </div>
 
-    <div id="canvas-section" class="canvas-container hidden">
-      <h3>Drawing Board</h3>
-      <canvas id="drawing-board" width="600" height="400"></canvas>
-      <div class="tools">
-        <input
-          type="color"
-          id="color-picker"
-          value="#000000"
-          style="width: 50px; padding: 0"
-        />
-        <button onclick="clearCanvas()" class="danger" id="clear-btn">
-          Clear Canvas
-        </button>
-      </div>
-      <p
-        id="drawer-warning"
-        style="color: red; font-size: 0.9em"
-        class="hidden"
-      >
-        It's not your turn to draw!
-      </p>
+    <div>
+        <div id="game-info" class="container hidden" style="border: 3px solid #28a745; width: 600px;">
+            <div style="display: flex; justify-content: space-between; align-items: center;">
+                <h3 style="color: #28a745; margin: 0;">Round: <span id="round-display"></span>/<span id="total-rounds-display"></span></h3>
+                <h3 style="margin: 0;">Word: <span id="word-display" style="letter-spacing: 3px; color: #007bff;">WAITING...</span></h3>
+            </div>
+            <p style="margin-bottom: 0;"><strong>Drawer:</strong> <span id="drawer-display" style="color: red; font-weight: bold;"></span></p>
+            
+            <div id="word-selection-area" class="hidden" style="margin-top: 15px; background: #fff3cd; padding: 10px; border-radius: 4px; border: 1px solid #ffeeba;">
+                <strong>It's your turn! Pick a word to draw:</strong>
+                <div style="display: flex; gap: 5px; margin-top: 5px;">
+                    <input type="text" id="secret-word-input" placeholder="e.g. Apple">
+                    <button class="success" onclick="chooseWord()" style="width: 100px;">Set Word</button>
+                </div>
+            </div>
+        </div>
+
+        <div id="canvas-section" class="canvas-container hidden">
+            <canvas id="drawing-board" width="600" height="400"></canvas>
+            <div class="tools">
+                <input type="color" id="color-picker" value="#000000" style="width: 50px; padding: 0;">
+                <button onclick="clearCanvas()" class="danger" id="clear-btn">Clear Canvas</button>
+            </div>
+            <p id="drawer-warning" style="color: red; font-size: 0.9em;" class="hidden">It's not your turn to draw or guess yet!</p>
+        </div>
     </div>
 
     <script>
-      let socket;
-      let currentRoomCode = null;
-      let myUserId = null;
-      let currentDrawer = null;
+        let socket;
+        let currentRoomCode = null;
+        let myUserId = null;
+        let currentDrawer = null;
+        let scores = {}; // Local score cache
 
-      // --- CANVAS SETUP ---
-      const canvas = document.getElementById("drawing-board");
-      const ctx = canvas.getContext("2d");
-      let isDrawing = false;
-      let lastX = 0;
-      let lastY = 0;
+        // --- CANVAS SETUP ---
+        const canvas = document.getElementById("drawing-board");
+        const ctx = canvas.getContext("2d");
+        let isDrawing = false;
+        let lastX = 0; let lastY = 0;
 
-      function drawLine(x0, y0, x1, y1, color, width) {
-        ctx.beginPath();
-        ctx.moveTo(x0, y0);
-        ctx.lineTo(x1, y1);
-        ctx.strokeStyle = color;
-        ctx.lineWidth = width;
-        ctx.stroke();
-        ctx.closePath();
-      }
-
-      // --- CANVAS MOUSE EVENTS ---
-      canvas.addEventListener("mousedown", (e) => {
-        if (currentDrawer !== myUserId) return; // Prevent drawing if not turn
-        isDrawing = true;
-        lastX = e.offsetX;
-        lastY = e.offsetY;
-      });
-
-      canvas.addEventListener("mousemove", (e) => {
-        if (!isDrawing || currentDrawer !== myUserId) return;
-        const currentX = e.offsetX;
-        const currentY = e.offsetY;
-        const color = document.getElementById("color-picker").value;
-
-        // 1. Draw locally immediately
-        drawLine(lastX, lastY, currentX, currentY, color, 2);
-
-        // 2. Emit to backend
-        socket.emit("draw_line", {
-          roomCode: currentRoomCode,
-          x0: lastX,
-          y0: lastY,
-          x1: currentX,
-          y1: currentY,
-          color: color,
-          width: 2,
-        });
-
-        lastX = currentX;
-        lastY = currentY;
-      });
-
-      canvas.addEventListener("mouseup", () => (isDrawing = false));
-      canvas.addEventListener("mouseout", () => (isDrawing = false));
-
-      // --- AUTH ---
-      async function login() {
-        try {
-          const token = prompt("Paste your JWT Token here:", "");
-          if (!token) return;
-
-          // Decode token to get our own ID so we know if it's our turn to draw
-          try {
-            const payload = JSON.parse(atob(token.split(".")[1]));
-            myUserId = payload.id;
-          } catch (e) {
-            console.log("Make sure you pasted a real JWT token");
-            return;
-          }
-
-          document.getElementById("auth-status").innerText =
-            `Connected as: ${myUserId}`;
-          connectSocket(token);
-        } catch (error) {
-          console.error("Login error:", error);
-        }
-      }
-
-      // --- SOCKET SETUP ---
-      function connectSocket(token) {
-        socket = io("http://localhost:5000", { auth: { token: token } });
-
-        socket.on("connect", () => {
-          document.getElementById("auth-section").classList.add("hidden");
-          document.getElementById("lobby-section").classList.remove("hidden");
-        });
-
-        // Room Events
-        socket.on("room_created", (data) => {
-          currentRoomCode = data.roomCode;
-          showRoomUI([myUserId]);
-        });
-
-        socket.on("player_list", (players) => {
-          if (!currentRoomCode)
-            currentRoomCode = document
-              .getElementById("join-room-input")
-              .value.trim()
-              .toUpperCase();
-          showRoomUI(players);
-        });
-
-        // Game Events
-        socket.on("game_started", updateGameUI);
-        socket.on("turn_updated", updateGameUI);
-        socket.on("game_over", (state) => alert("Game Over!"));
-
-        // --- DAY 11: DRAWING EVENTS ---
-        socket.on("draw_line", (data) => {
-          // When we receive drawing coordinates from someone else, draw them on our canvas!
-          drawLine(data.x0, data.y0, data.x1, data.y1, data.color, data.width);
-        });
-
-        socket.on("clear_canvas", () => {
-          ctx.clearRect(0, 0, canvas.width, canvas.height);
-        });
-
-        socket.on("error", (msg) => alert("Error: " + msg));
-      }
-
-      // --- BUTTON ACTIONS ---
-      function createRoom() {
-        socket.emit("create_room");
-      }
-      function joinRoom() {
-        socket.emit(
-          "join_room",
-          document.getElementById("join-room-input").value.trim().toUpperCase(),
-        );
-      }
-      function leaveRoom() {
-        location.reload(); /* Easiest reset for a test file */
-      }
-      function triggerStartGame() {
-        console.log("👉 START BUTTON CLICKED!");
-        console.log("👉 Current Room Code is:", currentRoomCode);
-
-        if (!currentRoomCode) {
-          return alert("You must be in a room!");
+        function drawLine(x0, y0, x1, y1, color, width) {
+            ctx.beginPath();
+            ctx.moveTo(x0, y0);
+            ctx.lineTo(x1, y1);
+            ctx.strokeStyle = color;
+            ctx.lineWidth = width;
+            ctx.stroke();
+            ctx.closePath();
         }
 
-        socket.emit("start_game", currentRoomCode);
-        console.log("👉 start_game event emitted to server.");
-      }
-      function triggerNextTurn() {
-        socket.emit("next_turn", currentRoomCode);
-      }
-
-      function clearCanvas() {
-        if (currentDrawer !== myUserId) return;
-        ctx.clearRect(0, 0, canvas.width, canvas.height);
-        socket.emit("clear_canvas", currentRoomCode);
-      }
-
-      // --- UI UPDATES ---
-      function showRoomUI(players) {
-        document.getElementById("lobby-section").classList.add("hidden");
-        document.getElementById("room-section").classList.remove("hidden");
-        document.getElementById("current-room-display").innerText =
-          currentRoomCode;
-
-        const list = document.getElementById("player-list-display");
-        list.innerHTML = "";
-        players.forEach((p) => {
-          const li = document.createElement("li");
-          li.innerText = p === myUserId ? `${p} (You)` : p;
-          list.appendChild(li);
+        canvas.addEventListener("mousedown", (e) => {
+            if (currentDrawer !== myUserId) return; 
+            isDrawing = true;
+            lastX = e.offsetX; lastY = e.offsetY;
         });
-      }
 
-      function updateGameUI(state) {
-        document.getElementById("start-game-btn").classList.add("hidden");
-        document.getElementById("next-turn-btn").classList.remove("hidden");
-        document.getElementById("game-info").classList.remove("hidden");
-        document.getElementById("canvas-section").classList.remove("hidden");
+        canvas.addEventListener("mousemove", (e) => {
+            if (!isDrawing || currentDrawer !== myUserId) return;
+            const currentX = e.offsetX; const currentY = e.offsetY;
+            const color = document.getElementById("color-picker").value;
 
-        // Update Game State
-        document.getElementById("round-display").innerText = state.currentRound;
-        document.getElementById("total-rounds-display").innerText =
-          state.totalRounds;
-        currentDrawer = state.drawer;
+            drawLine(lastX, lastY, currentX, currentY, color, 2);
+            socket.emit("draw_line", { roomCode: currentRoomCode, x0: lastX, y0: lastY, x1: currentX, y1: currentY, color, width: 2 });
+            lastX = currentX; lastY = currentY;
+        });
 
-        // Handle Drawing Permissions
-        const isMyTurn = currentDrawer === myUserId;
-        document.getElementById("drawer-display").innerText = isMyTurn
-          ? `${state.drawer} (YOU)`
-          : state.drawer;
+        canvas.addEventListener("mouseup", () => isDrawing = false);
+        canvas.addEventListener("mouseout", () => isDrawing = false);
 
-        // Show/Hide drawing warnings
-        if (isMyTurn) {
-          document.getElementById("drawer-warning").classList.add("hidden");
-          document.getElementById("clear-btn").classList.remove("hidden");
-        } else {
-          document.getElementById("drawer-warning").classList.remove("hidden");
-          document.getElementById("clear-btn").classList.add("hidden");
+        // --- AUTH ---
+        async function login() {
+            try {
+                const token = prompt("Paste your JWT Token here:", "");
+                if (!token) return;
+
+                try {
+                    const payload = JSON.parse(atob(token.split('.')[1]));
+                    myUserId = payload.id;
+                } catch(e) { console.log("Make sure you pasted a real JWT token"); return; }
+
+                document.getElementById("auth-status").innerText = `Connected as: ${myUserId}`;
+                connectSocket(token);
+            } catch (error) { console.error("Login error:", error); }
         }
 
-        // Clear canvas automatically on new turn
-        ctx.clearRect(0, 0, canvas.width, canvas.height);
-      }
+        // --- SOCKET SETUP ---
+        function connectSocket(token) {
+            socket = io("http://localhost:5000", { auth: { token: token } });
+
+            socket.on("connect", () => {
+                document.getElementById("auth-section").classList.add("hidden");
+                document.getElementById("lobby-section").classList.remove("hidden");
+            });
+
+            // Room Events
+            socket.on("room_created", (data) => {
+                currentRoomCode = data.roomCode;
+                showRoomUI([myUserId]);
+            });
+
+            socket.on("player_list", (players) => {
+                if (!currentRoomCode) currentRoomCode = document.getElementById("join-room-input").value.trim().toUpperCase();
+                
+                // Initialize default scores if missing
+                players.forEach(p => { if (scores[p] === undefined) scores[p] = 0; });
+                updateScoreUI(players);
+            });
+
+            // Game Events
+            socket.on("game_started", updateGameUI);
+            socket.on("turn_updated", updateGameUI);
+            socket.on("game_over", () => alert("Game Over!"));
+
+            // --- DAY 12: GUESSING & CHAT EVENTS ---
+            socket.on("word_chosen", (data) => {
+                document.getElementById("word-display").innerText = data.hiddenWord;
+                document.getElementById("word-selection-area").classList.add("hidden");
+                
+                // Add a system message to chat
+                appendChat("System", "The drawer has picked a word. Start guessing!", "success");
+            });
+
+            socket.on("chat_message", (data) => {
+                appendChat(data.sender, data.text, data.type);
+            });
+
+            socket.on("score_update", (newScores) => {
+                scores = newScores;
+                updateScoreUI(Object.keys(scores));
+            });
+
+            // Day 11: Drawing Events
+            socket.on("draw_line", (data) => drawLine(data.x0, data.y0, data.x1, data.y1, data.color, data.width));
+            socket.on("clear_canvas", () => ctx.clearRect(0, 0, canvas.width, canvas.height));
+            socket.on("error", (msg) => alert("Error: " + msg));
+        }
+
+        // --- BUTTON ACTIONS ---
+        function createRoom() { socket.emit("create_room"); }
+        function joinRoom() { socket.emit("join_room", document.getElementById("join-room-input").value.trim().toUpperCase()); }
+        function leaveRoom() { location.reload(); }
+        function triggerStartGame() { socket.emit("start_game", currentRoomCode); }
+        function triggerNextTurn() { socket.emit("next_turn", currentRoomCode); }
+        
+        function clearCanvas() {
+            if (currentDrawer !== myUserId) return;
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
+            socket.emit("clear_canvas", currentRoomCode);
+        }
+
+        function chooseWord() {
+            const word = document.getElementById("secret-word-input").value.trim();
+            if (!word) return alert("Enter a word!");
+            socket.emit("choose_word", { roomCode: currentRoomCode, word: word });
+            
+            // Drawer sees the actual word
+            document.getElementById("word-display").innerText = word;
+            document.getElementById("word-selection-area").classList.add("hidden");
+        }
+
+        function sendGuess() {
+            const input = document.getElementById("chat-input");
+            const guess = input.value.trim();
+            if (!guess) return;
+
+            socket.emit("guess_word", { roomCode: currentRoomCode, guess: guess });
+            input.value = "";
+        }
+
+        function handleEnter(e) {
+            if (e.key === "Enter") sendGuess();
+        }
+
+        // --- UI UPDATES ---
+        function showRoomUI(players) {
+            document.getElementById("lobby-section").classList.add("hidden");
+            document.getElementById("room-section").classList.remove("hidden");
+            document.getElementById("current-room-display").innerText = currentRoomCode;
+            updateScoreUI(players);
+        }
+
+        function updateScoreUI(players) {
+            const list = document.getElementById("player-list-display");
+            list.innerHTML = "";
+            players.forEach(p => {
+                const li = document.createElement("li");
+                const currentScore = scores[p] || 0;
+                li.innerText = p === myUserId ? `${p} (You) : ${currentScore} pts` : `${p} : ${currentScore} pts`;
+                list.appendChild(li);
+            });
+        }
+
+        function updateGameUI(state) {
+            document.getElementById("start-game-btn").classList.add("hidden");
+            document.getElementById("next-turn-btn").classList.remove("hidden");
+            document.getElementById("game-info").classList.remove("hidden");
+            document.getElementById("canvas-section").classList.remove("hidden");
+            document.getElementById("chat-section").classList.remove("hidden");
+
+            // Update Game State
+            document.getElementById("round-display").innerText = state.currentRound;
+            document.getElementById("total-rounds-display").innerText = state.totalRounds;
+            document.getElementById("word-display").innerText = "WAITING...";
+            currentDrawer = state.drawer;
+            
+            const isMyTurn = (currentDrawer === myUserId);
+            document.getElementById("drawer-display").innerText = isMyTurn ? `${state.drawer} (YOU)` : state.drawer;
+            
+            // Handle Word Selection & Canvas UI
+            if (isMyTurn) {
+                document.getElementById("word-selection-area").classList.remove("hidden");
+                document.getElementById("secret-word-input").value = "";
+                document.getElementById("drawer-warning").classList.add("hidden");
+                document.getElementById("clear-btn").classList.remove("hidden");
+                document.getElementById("chat-input").disabled = true;
+                document.getElementById("chat-input").placeholder = "You are drawing!";
+            } else {
+                document.getElementById("word-selection-area").classList.add("hidden");
+                document.getElementById("drawer-warning").classList.remove("hidden");
+                document.getElementById("clear-btn").classList.add("hidden");
+                document.getElementById("chat-input").disabled = false;
+                document.getElementById("chat-input").placeholder = "Type your guess...";
+            }
+
+            // Clear canvas and chat for new turn
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
+            document.getElementById("chat-box").innerHTML = "";
+            appendChat("System", `Round ${state.currentRound} starting. ${state.drawer} is picking a word!`, "normal");
+        }
+
+        function appendChat(sender, text, type) {
+            const chatBox = document.getElementById("chat-box");
+            const msgDiv = document.createElement("div");
+            msgDiv.className = type === "success" ? "msg-success" : "msg-normal";
+            msgDiv.innerText = `${sender}: ${text}`;
+            chatBox.appendChild(msgDiv);
+            chatBox.scrollTop = chatBox.scrollHeight;
+        }
     </script>
-  </body>
+</body>
 </html>

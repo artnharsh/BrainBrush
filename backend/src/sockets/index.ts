@@ -4,6 +4,7 @@ import { JWT_SECRET } from "../config/env";
 import { AuthenticatedSocket } from "../types/socketTypes";
 import { roomSocket } from "./roomSocket";
 import { drawingSocket } from "./drawingSocket";
+import { gameSocket } from "./gameSocket";
 
 export const initSocket = (io: Server) => {
   io.use((socket: AuthenticatedSocket, next) => {
@@ -25,6 +26,8 @@ export const initSocket = (io: Server) => {
 
     roomSocket(io, socket);
     drawingSocket(io, socket);
+    gameSocket(io, socket);
+    
     socket.on("disconnect", () => {
       console.log("User disconnected:", socket.user?.id);
     });
