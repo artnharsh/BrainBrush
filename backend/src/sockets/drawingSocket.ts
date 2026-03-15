@@ -31,6 +31,7 @@ export const drawingSocket = (io: Server, socket: AuthenticatedSocket) => {
         // Notice we use `socket.to` instead of `io.to`.
         // `socket.to` sends to everyone EXCEPT the person who just drew it!
         socket.to(roomCode).emit("draw_line", lineData);
+        // console.log(`User ${socket.user?.username} drew a line in room ${roomCode}`);
       } catch (error) {
         console.error("Drawing error:", error);
       }
