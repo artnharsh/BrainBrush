@@ -6,6 +6,7 @@ export type GameState = {
   totalRounds: number; // e.g., 2 or 3
   drawer: string;
   word: string;
+  wordChoices: string[],
   timer: number;
   scores: Record<string, number>;
 };

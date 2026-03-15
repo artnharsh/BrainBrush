@@ -1,5 +1,6 @@
 import redis from "../config/redis";
 import { GameState } from "../types/gameTypes";
+import { getRandomWords } from "../utils/wordGenerator"
 
 const Game_TTL = 3600; // 1 hour in seconds
 
@@ -11,9 +12,10 @@ export const startGame = async (roomCode: string, players: string[]) => {
     players, // Save the ordered list of players
     currentPlayerIndex: 0, // Start with the first player
     currentRound: 1,
-    totalRounds: 3, // Defaulting to 3 rounds for the game
+    totalRounds: 1, // Defaulting to 3 rounds for the game
     drawer: players[0],
     word: "",
+    wordChoices: getRandomWords(3),
     timer: 60,
     scores: {},
   };
@@ -105,6 +107,7 @@ export const nextTurn = async (roomCode: string) => {
   if (!isGameOver) {
     game.drawer = game.players[game.currentPlayerIndex];
     game.word = "";
+    game.wordChoices = getRandomWords(3);
     game.timer = 60;
   }
 
