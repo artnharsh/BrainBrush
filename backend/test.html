@@ -1,32 +1,128 @@
 <!DOCTYPE html>
 <html lang="en">
+
 <head>
     <meta charset="UTF-8">
     <title>Socket Skribbl Test - Word Choices</title>
     <script src="https://cdn.socket.io/4.7.2/socket.io.min.js"></script>
     <style>
-        body { font-family: sans-serif; padding: 20px; background: #f4f4f9; display: flex; gap: 20px; align-items: flex-start; flex-wrap: wrap; }
-        .container { background: white; padding: 20px; border-radius: 8px; width: 350px; box-shadow: 0 2px 10px rgba(0,0,0,0.1); margin-bottom: 20px; }
-        .hidden { display: none !important; }
-        input, button { padding: 8px; margin: 5px 0; width: 100%; box-sizing: border-box; }
-        button { cursor: pointer; background: #007bff; color: white; border: none; border-radius: 4px; font-weight: bold; }
-        button:hover { background: #0056b3; }
-        button.danger { background: #dc3545; }
-        button.success { background: #28a745; }
-        hr { border: 1px solid #eee; margin: 15px 0; }
-        
-        .canvas-container { background: white; padding: 20px; border-radius: 8px; box-shadow: 0 2px 10px rgba(0,0,0,0.1); display: flex; flex-direction: column; width: 600px; }
-        canvas { border: 2px solid #333; cursor: crosshair; background: #fff; margin-bottom: 10px; width: 100%; }
-        .tools { display: flex; gap: 10px; }
+        body {
+            font-family: sans-serif;
+            padding: 20px;
+            background: #f4f4f9;
+            display: flex;
+            gap: 20px;
+            align-items: flex-start;
+            flex-wrap: wrap;
+        }
 
-        #chat-box { height: 200px; overflow-y: auto; border: 1px solid #ccc; padding: 10px; background: #fafafa; border-radius: 4px; margin-bottom: 10px; font-size: 0.9em; }
-        .msg-normal { color: #333; margin-bottom: 5px; }
-        .msg-success { color: #28a745; font-weight: bold; margin-bottom: 5px; background: #e8f5e9; padding: 5px; border-radius: 4px; }
-        
-        .word-choice-btn { flex: 1; margin: 0 5px; background: #17a2b8; }
-        .word-choice-btn:hover { background: #138496; }
+        .container {
+            background: white;
+            padding: 20px;
+            border-radius: 8px;
+            width: 350px;
+            box-shadow: 0 2px 10px rgba(0, 0, 0, 0.1);
+            margin-bottom: 20px;
+        }
+
+        .hidden {
+            display: none !important;
+        }
+
+        input,
+        button {
+            padding: 8px;
+            margin: 5px 0;
+            width: 100%;
+            box-sizing: border-box;
+        }
+
+        button {
+            cursor: pointer;
+            background: #007bff;
+            color: white;
+            border: none;
+            border-radius: 4px;
+            font-weight: bold;
+        }
+
+        button:hover {
+            background: #0056b3;
+        }
+
+        button.danger {
+            background: #dc3545;
+        }
+
+        button.success {
+            background: #28a745;
+        }
+
+        hr {
+            border: 1px solid #eee;
+            margin: 15px 0;
+        }
+
+        .canvas-container {
+            background: white;
+            padding: 20px;
+            border-radius: 8px;
+            box-shadow: 0 2px 10px rgba(0, 0, 0, 0.1);
+            display: flex;
+            flex-direction: column;
+            width: 600px;
+        }
+
+        canvas {
+            border: 2px solid #333;
+            cursor: crosshair;
+            background: #fff;
+            margin-bottom: 10px;
+            width: 100%;
+        }
+
+        .tools {
+            display: flex;
+            gap: 10px;
+        }
+
+        #chat-box {
+            height: 200px;
+            overflow-y: auto;
+            border: 1px solid #ccc;
+            padding: 10px;
+            background: #fafafa;
+            border-radius: 4px;
+            margin-bottom: 10px;
+            font-size: 0.9em;
+        }
+
+        .msg-normal {
+            color: #333;
+            margin-bottom: 5px;
+        }
+
+        .msg-success {
+            color: #28a745;
+            font-weight: bold;
+            margin-bottom: 5px;
+            background: #e8f5e9;
+            padding: 5px;
+            border-radius: 4px;
+        }
+
+        .word-choice-btn {
+            flex: 1;
+            margin: 0 5px;
+            background: #17a2b8;
+        }
+
+        .word-choice-btn:hover {
+            background: #138496;
+        }
     </style>
 </head>
+
 <body>
 
     <div>
@@ -53,7 +149,7 @@
             <h4>Live Scores:</h4>
             <ul id="player-list-display"></ul>
         </div>
-        
+
         <div id="chat-section" class="container hidden">
             <h3 style="margin-top: 0;">Chat & Guesses</h3>
             <div id="chat-box"></div>
@@ -67,15 +163,20 @@
     <div>
         <div id="game-info" class="container hidden" style="border: 3px solid #28a745; width: 600px;">
             <div style="display: flex; justify-content: space-between; align-items: center;">
-                <h3 style="color: #28a745; margin: 0;">Round: <span id="round-display"></span>/<span id="total-rounds-display"></span></h3>
-                <h3 style="margin: 0;">Word: <span id="word-display" style="letter-spacing: 3px; color: #007bff;">WAITING...</span></h3>
+                <h3 style="color: #28a745; margin: 0;">Round: <span id="round-display"></span>/<span
+                        id="total-rounds-display"></span></h3>
+                <h3 style="margin: 0;">Word: <span id="word-display"
+                        style="letter-spacing: 3px; color: #007bff;">WAITING...</span></h3>
             </div>
-            <p style="margin-bottom: 0;"><strong>Drawer:</strong> <span id="drawer-display" style="color: red; font-weight: bold;"></span></p>
-            
-            <div id="word-selection-area" class="hidden" style="margin-top: 15px; background: #e2e3e5; padding: 15px; border-radius: 4px; border: 1px solid #d6d8db; text-align: center;">
+            <p style="margin-bottom: 0;"><strong>Drawer:</strong> <span id="drawer-display"
+                    style="color: red; font-weight: bold;"></span></p>
+
+            <div id="word-selection-area" class="hidden"
+                style="margin-top: 15px; background: #e2e3e5; padding: 15px; border-radius: 4px; border: 1px solid #d6d8db; text-align: center;">
                 <strong>It's your turn! Pick a word to draw:</strong>
-                <div id="word-choices-container" style="display: flex; justify-content: space-between; margin-top: 10px;">
-                    </div>
+                <div id="word-choices-container"
+                    style="display: flex; justify-content: space-between; margin-top: 10px;">
+                </div>
             </div>
         </div>
 
@@ -85,7 +186,8 @@
                 <input type="color" id="color-picker" value="#000000" style="width: 50px; padding: 0;">
                 <button onclick="clearCanvas()" class="danger" id="clear-btn">Clear Canvas</button>
             </div>
-            <p id="drawer-warning" style="color: red; font-size: 0.9em;" class="hidden">It's not your turn to draw or guess yet!</p>
+            <p id="drawer-warning" style="color: red; font-size: 0.9em;" class="hidden">It's not your turn to draw or
+                guess yet!</p>
         </div>
     </div>
 
@@ -94,7 +196,7 @@
         let currentRoomCode = null;
         let myUserId = null;
         let currentDrawer = null;
-        let scores = {}; 
+        let scores = {};
 
         // --- CANVAS SETUP ---
         const canvas = document.getElementById("drawing-board");
@@ -113,7 +215,7 @@
         }
 
         canvas.addEventListener("mousedown", (e) => {
-            if (currentDrawer !== myUserId) return; 
+            if (currentDrawer !== myUserId) return;
             isDrawing = true;
             lastX = e.offsetX; lastY = e.offsetY;
         });
@@ -140,7 +242,7 @@
                 try {
                     const payload = JSON.parse(atob(token.split('.')[1]));
                     myUserId = payload.id;
-                } catch(e) { console.log("Invalid token format"); return; }
+                } catch (e) { console.log("Invalid token format"); return; }
 
                 document.getElementById("auth-status").innerText = `Connected as: ${myUserId}`;
                 connectSocket(token);
@@ -169,7 +271,16 @@
 
             socket.on("game_started", updateGameUI);
             socket.on("turn_updated", updateGameUI);
-            socket.on("game_over", () => alert("Game Over!"));
+            socket.on("game_over", (data) => {
+                alert(data?.reason || "Game Over!");
+
+                // Hide the game UI and show the Room UI again
+                document.getElementById("game-info").classList.add("hidden");
+                document.getElementById("canvas-section").classList.add("hidden");
+                document.getElementById("chat-section").classList.add("hidden");
+                document.getElementById("start-game-btn").classList.remove("hidden");
+                document.getElementById("next-turn-btn").classList.add("hidden");
+            });
 
             socket.on("word_chosen", (data) => {
                 document.getElementById("word-display").innerText = data.hiddenWord;
@@ -194,7 +305,7 @@
         function leaveRoom() { location.reload(); }
         function triggerStartGame() { socket.emit("start_game", currentRoomCode); }
         function triggerNextTurn() { socket.emit("next_turn", currentRoomCode); }
-        
+
         function clearCanvas() {
             if (currentDrawer !== myUserId) return;
             ctx.clearRect(0, 0, canvas.width, canvas.height);
@@ -204,7 +315,7 @@
         // This now takes the word directly from the button click
         function chooseWord(word) {
             socket.emit("choose_word", { roomCode: currentRoomCode, word: word });
-            
+
             // Instantly update UI for the drawer
             document.getElementById("word-display").innerText = word;
             document.getElementById("word-selection-area").classList.add("hidden");
@@ -250,10 +361,10 @@
             document.getElementById("total-rounds-display").innerText = state.totalRounds;
             document.getElementById("word-display").innerText = "WAITING...";
             currentDrawer = state.drawer;
-            
+
             const isMyTurn = (currentDrawer === myUserId);
             document.getElementById("drawer-display").innerText = isMyTurn ? `${state.drawer} (YOU)` : state.drawer;
-            
+
             if (isMyTurn) {
                 // Generate the 3 buttons dynamically
                 const choicesContainer = document.getElementById("word-choices-container");
@@ -268,7 +379,7 @@
                         choicesContainer.appendChild(btn);
                     });
                 }
-                
+
                 document.getElementById("word-selection-area").classList.remove("hidden");
                 document.getElementById("drawer-warning").classList.add("hidden");
                 document.getElementById("clear-btn").classList.remove("hidden");
@@ -283,7 +394,7 @@
             }
 
             ctx.clearRect(0, 0, canvas.width, canvas.height);
-            
+
             // Only announce the turn if we actually just switched to a new turn
             if (!state.word) {
                 document.getElementById("chat-box").innerHTML = "";
@@ -301,4 +412,5 @@
         }
     </script>
 </body>
+
 </html>

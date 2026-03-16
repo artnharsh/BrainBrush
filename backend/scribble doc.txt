@@ -449,3 +449,22 @@ Instead of using res.status(200).json(...) like an HTTP controller, the socket l
 ------------------------------------------------------------------
 ------------------------------------------------------------------
 
+1. How Turns Work (The Index)
+
+We do not use fractions or math to track turns. Instead, we use an Array Index (currentPlayerIndex).
+
+If the array is ["Alice", "Bob", "Charlie"], Alice is index 0. When her turn ends, we just do +1 to move to Bob (index 1).
+
+When the index reaches the end of the array (length), we reset the index to 0 and add +1 to the Round.
+
+2. How We Handle "Rage Quits" (Disconnects)
+
+If a player closes their tab, the server removes them from the array (splice).
+
+The Math Fix: If the player who left was before the current drawer in the list, the array just shrank. We have to shift our currentPlayerIndex back by -1 so we don't accidentally skip the next person in line.
+
+The Drawer Quits: If the person who left was the active drawer, the server instantly forces a nextTurn() so the game doesn't get permanently stuck waiting for a ghost to draw.
+
+------------------------------------------------------------------
+------------------------------------------------------------------
+

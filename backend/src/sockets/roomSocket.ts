@@ -1,8 +1,9 @@
 import { Server } from "socket.io";
 import { AuthenticatedSocket } from "../types/socketTypes";
 import { createRoomRedis, joinRoomRedis, leaveRoomRedis } from "../services/roomService";
-import { startGame, nextTurn } from "../services/gameService"; // <-- IMPORT GAME SERVICES
+import { startGame, nextTurn, handlePlayerLeave } from "../services/gameService"; // <-- IMPORT GAME SERVICES
 import redis from "../config/redis"; // <-- IMPORT REDIS
+
 
 export const roomSocket = (io: Server, socket: AuthenticatedSocket) => {
   // --- CREATE ROOM ---
@@ -116,9 +117,32 @@ export const roomSocket = (io: Server, socket: AuthenticatedSocket) => {
 
       for (const roomCode of socket.rooms) {
         if (roomCode !== socket.id) {
+          
+          // 1. Remove from the Lobby (Redis Set)
           const room = await leaveRoomRedis(roomCode, userId);
           if (room && room.players) {
             io.to(roomCode).emit("player_list", room.players);
+          }
+
+          // 2. Handle Game Logic if a game is actively running
+          const { shouldEndGame, wasDrawer } = await handlePlayerLeave(roomCode, userId);
+          
+          if (shouldEndGame) {
+            // Everyone left but one guy, end the game early
+            io.to(roomCode).emit("game_over", { reason: "Not enough players to continue." });
+          } else if (wasDrawer) {
+            // The drawer rage-quit! Instantly force the next turn.
+            const { game, isGameOver } = await nextTurn(roomCode);
+            if (isGameOver) {
+              io.to(roomCode).emit("game_over", game);
+            } else {
+              io.to(roomCode).emit("turn_updated", game);
+              io.to(roomCode).emit("chat_message", { 
+                sender: "System", 
+                text: "The drawer left! Skipping to the next turn.", 
+                type: "normal" 
+              });
+              }
           }
         }
       }

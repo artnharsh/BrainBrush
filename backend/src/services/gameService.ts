@@ -115,3 +115,39 @@ export const nextTurn = async (roomCode: string) => {
 
   return { game, isGameOver };
 };
+
+export const handlePlayerLeave = async(roomCode: string, userId: string) => {
+  const gameStr = await redis.get(`game:${roomCode}`);
+
+  // if game isn't started or already over then do nothing 
+  if(!gameStr) return {shouldEndGame: false, wasDrawer: false};
+
+  const game: GameState = JSON.parse(gameStr);
+  const playerIndex = game.players.indexOf(userId);
+
+  // if player is not in the array ignore it
+  if(playerIndex === -1) return { shouldEndGame: false, wasDrawer: false};
+
+  // 1. remove player from the game array
+  game.players.splice(playerIndex, 1);
+
+  //2. if less than 2 players, game can't continue
+  if(game.players.length < 2) {
+    await redis.del(`game:${roomCode}`); 
+    return { shouldEndGame: true, wasDrawer: false};
+  }
+
+  // 3. if the person who left was the drawer 
+  const wasDrawer = (game.drawer === userId);
+
+  //shift index back 
+  // if person who left was before the current drawer or was drawer
+  // the array just shrank so pointer shift down by 1
+  if(playerIndex <= game.currentPlayerIndex) {
+    game.currentPlayerIndex -= 1;
+  }
+
+  await redis.set((`game:${roomCode}`), JSON.stringify(game));
+
+  return { shouldEndGame: false, wasDrawer, game};
+};
