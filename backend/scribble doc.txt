@@ -468,3 +468,9 @@ The Drawer Quits: If the person who left was the active drawer, the server insta
 ------------------------------------------------------------------
 ------------------------------------------------------------------
 
+Server-Authoritative Timers
+Why the Server? We never trust the client (browser) to keep time. If the timer was in frontend JavaScript (setTimeout), a player could cheat by hacking the code, or the timer would pause if they minimized the tab. The server holds the absolute "stopwatch" and broadcasts the time.
+
+The Map Object: Because a server handles many rooms at once, we use activeTimers = new Map() to link a specific roomCode to a specific interval ID.
+
+Memory Leaks: setInterval will run forever and crash your server if you don't stop it. We always call clearInterval() when the timer hits zero or when a round ends early to prevent overlapping clocks.

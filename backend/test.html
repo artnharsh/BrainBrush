@@ -3,7 +3,7 @@
 
 <head>
     <meta charset="UTF-8">
-    <title>Socket Skribbl Test - Word Choices</title>
+    <title>Socket Skribbl Test - Word Choices & Timer</title>
     <script src="https://cdn.socket.io/4.7.2/socket.io.min.js"></script>
     <style>
         body {
@@ -165,6 +165,7 @@
             <div style="display: flex; justify-content: space-between; align-items: center;">
                 <h3 style="color: #28a745; margin: 0;">Round: <span id="round-display"></span>/<span
                         id="total-rounds-display"></span></h3>
+                <h3 style="margin: 0; color: #dc3545;">Time: <span id="timer-display">60</span>s</h3>
                 <h3 style="margin: 0;">Word: <span id="word-display"
                         style="letter-spacing: 3px; color: #007bff;">WAITING...</span></h3>
             </div>
@@ -264,9 +265,14 @@
             });
 
             socket.on("player_list", (players) => {
+                // Get code from input if we just joined
                 if (!currentRoomCode) currentRoomCode = document.getElementById("join-room-input").value.trim().toUpperCase();
+                
+                // Set default scores
                 players.forEach(p => { if (scores[p] === undefined) scores[p] = 0; });
-                updateScoreUI(players);
+                
+                // FIX: Force the UI to transition into the room!
+                showRoomUI(players); 
             });
 
             socket.on("game_started", updateGameUI);
@@ -289,6 +295,9 @@
             });
 
             socket.on("chat_message", (data) => appendChat(data.sender, data.text, data.type));
+            socket.on("timer_update", (timeLeft) => {
+                document.getElementById("timer-display").innerText = timeLeft;
+            });
             socket.on("score_update", (newScores) => {
                 scores = newScores;
                 updateScoreUI(Object.keys(scores));
@@ -336,7 +345,7 @@
             document.getElementById("lobby-section").classList.add("hidden");
             document.getElementById("room-section").classList.remove("hidden");
             document.getElementById("current-room-display").innerText = currentRoomCode;
-            updateScoreUI(players);
+            updateScoreUI(players); // This dynamically populates the list
         }
 
         function updateScoreUI(players) {

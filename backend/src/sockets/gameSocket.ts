@@ -4,6 +4,8 @@ import { processGuess } from "../services/scoringService";
 import { updateWord } from "../services/gameService";
 import test from "node:test";
 import { text } from "node:stream/consumers";
+import { startRoundTimer } from "../utils/timer";
+import { start } from "node:repl";
 
 export const gameSocket = async(io: Server, socket: AuthenticatedSocket) => {
     socket.on("choose_word", async(data: {roomCode: string; word: string}) => {
@@ -19,6 +21,8 @@ export const gameSocket = async(io: Server, socket: AuthenticatedSocket) => {
 
             // tell everyone the game is on and how long the word is!
             io.to(data.roomCode).emit("word_chosen", { hiddenWord: hiddenWord.trim() });
+
+            startRoundTimer(io, data.roomCode, 60);
 
         } catch (error) {
             console.error("Error choosing word: ", error);
