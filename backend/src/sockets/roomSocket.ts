@@ -26,21 +26,33 @@ export const roomSocket = (io: Server, socket: AuthenticatedSocket) => {
   });
 
   // --- JOIN ROOM ---
+  // --- JOIN ROOM ---
   socket.on("join_room", async (roomCode: string) => {
     try {
       const userId = socket.user?.id;
-      if (!userId) {
-        return socket.emit("error", "User not authenticated");
-      }
+      if (!userId) return socket.emit("error", "User not authenticated");
+
       const room = await joinRoomRedis(roomCode, userId);
       socket.join(roomCode);
       io.to(roomCode).emit("player_list", room.players);
-    } catch (error) {
-      if (error instanceof Error) {
-        socket.emit("error", error.message);
-      } else {
-        socket.emit("error", "Failed to join room");
+
+      // THE RECONNECT FIX: Is there an active game going on right now?
+      const gameStr = await redis.get(`game:${roomCode}`);
+      if (gameStr) {
+        const activeGame = JSON.parse(gameStr);
+        
+        // Quietly send ONLY this reconnecting user the current game state
+        // so their UI switches from the Lobby to the active Game Board!
+        socket.emit("game_started", activeGame); 
+        
+        // (Optional) Tell them what the current hidden word looks like
+        if (activeGame.word) {
+            const hiddenWord = activeGame.word.replace(/[a-zA-Z]/g, "_ ");
+            socket.emit("word_chosen", { hiddenWord: hiddenWord.trim() });
+        }
       }
+    } catch (error) {
+      if (error instanceof Error) socket.emit("error", error.message); 
     }
   });
 

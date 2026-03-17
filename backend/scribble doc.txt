@@ -474,3 +474,11 @@ Why the Server? We never trust the client (browser) to keep time. If the timer w
 The Map Object: Because a server handles many rooms at once, we use activeTimers = new Map() to link a specific roomCode to a specific interval ID.
 
 Memory Leaks: setInterval will run forever and crash your server if you don't stop it. We always call clearInterval() when the timer hits zero or when a round ends early to prevent overlapping clocks.
+
+------------------------------------------------------------------
+------------------------------------------------------------------
+
+Backend should NOT throttle drawing heavily, because:
+
+adds latency
+breaks drawing smoothness

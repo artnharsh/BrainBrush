@@ -44,10 +44,20 @@ export const leaveRoomRedis = async (roomCode: string, userId: string) => {
   if (players.length === 0) {
     await redis.del(`room:${roomCode}:players`);
     await redis.del(`room:${roomCode}:host`);
+  } else {
+    // The room is still alive. Did the Host just leave?
+    const currentHost = await redis.get(`room:${roomCode}:host`);
+
+    if (currentHost === userId) {
+      // Pass the crown to the next person in line
+      const newHost = players[0];
+      await redis.set(`room:${roomCode}:host`, newHost);
+      console.log(`👑 Host transferred to ${newHost} for room ${roomCode}`);
+    }
   }
 
-  // Return as an object
-  return { players };
+  const host = await redis.get(`room:${roomCode}:host`);
+  return { players, host };
 };
 
 // Add this to the bottom of your roomService.ts

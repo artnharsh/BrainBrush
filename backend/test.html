@@ -198,12 +198,17 @@
         let myUserId = null;
         let currentDrawer = null;
         let scores = {};
-
         // --- CANVAS SETUP ---
         const canvas = document.getElementById("drawing-board");
         const ctx = canvas.getContext("2d");
         let isDrawing = false;
+
+        // Trackers for the LOCAL screen (draws every single frame)
         let lastX = 0; let lastY = 0;
+
+        // Trackers for the NETWORK (only updates when we emit)
+        let emitLastX = 0; let emitLastY = 0;
+        let lastEmitTime = 0;
 
         function drawLine(x0, y0, x1, y1, color, width) {
             ctx.beginPath();
@@ -211,6 +216,7 @@
             ctx.lineTo(x1, y1);
             ctx.strokeStyle = color;
             ctx.lineWidth = width;
+            ctx.lineCap = "round"; // Makes lines look much better!
             ctx.stroke();
             ctx.closePath();
         }
@@ -219,6 +225,9 @@
             if (currentDrawer !== myUserId) return;
             isDrawing = true;
             lastX = e.offsetX; lastY = e.offsetY;
+
+            // Sync the network tracker when we start a new line
+            emitLastX = e.offsetX; emitLastY = e.offsetY;
         });
 
         canvas.addEventListener("mousemove", (e) => {
@@ -226,14 +235,45 @@
             const currentX = e.offsetX; const currentY = e.offsetY;
             const color = document.getElementById("color-picker").value;
 
+            // 1. Draw locally instantly (Silky smooth 144hz/60hz)
             drawLine(lastX, lastY, currentX, currentY, color, 2);
-            socket.emit("draw_line", { roomCode: currentRoomCode, x0: lastX, y0: lastY, x1: currentX, y1: currentY, color, width: 2 });
+
+            // 2. The Throttle (Limit network to ~30-40 updates per second)
+            const now = Date.now();
+            if (now - lastEmitTime > 25) { // 25 milliseconds
+                socket.emit("draw_line", {
+                    roomCode: currentRoomCode,
+                    x0: emitLastX, y0: emitLastY, // Draw FROM the last point we told the server about
+                    x1: currentX, y1: currentY,   // Draw TO the current mouse position
+                    color: color, width: 2
+                });
+
+                // Update our network trackers
+                emitLastX = currentX;
+                emitLastY = currentY;
+                lastEmitTime = now;
+            }
+
+            // Always update local trackers
             lastX = currentX; lastY = currentY;
         });
 
-        canvas.addEventListener("mouseup", () => isDrawing = false);
-        canvas.addEventListener("mouseout", () => isDrawing = false);
+        // When mouse goes up, send one final exact point so the end of the line doesn't get cut off
+        const finishDrawing = (e) => {
+            if (!isDrawing || currentDrawer !== myUserId) return;
+            isDrawing = false;
 
+            socket.emit("draw_line", {
+                roomCode: currentRoomCode,
+                x0: emitLastX, y0: emitLastY,
+                x1: e.offsetX, y1: e.offsetY,
+                color: document.getElementById("color-picker").value,
+                width: 2
+            });
+        };
+
+        canvas.addEventListener("mouseup", finishDrawing);
+        canvas.addEventListener("mouseout", finishDrawing);
         // --- AUTH ---
         async function login() {
             try {
@@ -267,12 +307,12 @@
             socket.on("player_list", (players) => {
                 // Get code from input if we just joined
                 if (!currentRoomCode) currentRoomCode = document.getElementById("join-room-input").value.trim().toUpperCase();
-                
+
                 // Set default scores
                 players.forEach(p => { if (scores[p] === undefined) scores[p] = 0; });
-                
+
                 // FIX: Force the UI to transition into the room!
-                showRoomUI(players); 
+                showRoomUI(players);
             });
 
             socket.on("game_started", updateGameUI);
