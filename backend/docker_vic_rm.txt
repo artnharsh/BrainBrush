@@ -1,0 +1,21 @@
+To see a detailed breakdown of how much space your Docker volumes (and containers/images) are taking up, run this in your Fedora terminal:
+
+Bash
+docker system df -v
+
+1. Stop all containers (just in case any are running)
+docker stop $(docker ps -aq)
+
+2. Delete all containers
+docker rm $(docker ps -aq)
+
+3. Delete all volumes (This destroys the Mongo/Redis data!)
+docker volume rm $(docker volume ls -q)
+
+4. Delete all images (This deletes the 1GB+ Mongo/Redis base images)
+docker rmi -f $(docker images -aq)
+
+5. Run the ultimate cleanup command
+This sweeps up any leftover networks, build caches, and dangling files.
+
+docker system prune -a --volumes -f

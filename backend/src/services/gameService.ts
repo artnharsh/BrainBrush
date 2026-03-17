@@ -1,4 +1,5 @@
 import redis from "../config/redis";
+import GameHistory from "../models/GameHistory";
 import { GameState } from "../types/gameTypes";
 import { getRandomWords } from "../utils/wordGenerator"
 
@@ -150,4 +151,40 @@ export const handlePlayerLeave = async(roomCode: string, userId: string) => {
   await redis.set((`game:${roomCode}`), JSON.stringify(game));
 
   return { shouldEndGame: false, wasDrawer, game};
+};
+
+export const endGame = async(roomCode: string, finalGameState: GameState) => {
+  let winner = "";
+  let maxScore = -1;
+  const formattedScores = [];
+
+  for( const player of finalGameState.players) {
+    const score = finalGameState.scores[player] || 0;
+
+    formattedScores.push({ player: player, score: score});
+
+    if(score > maxScore) {
+      maxScore = score;
+      winner = player;
+    }
+  }
+
+  try {
+    const history = new GameHistory({
+      roomCode: finalGameState.roomCode,
+      players: finalGameState.players,
+      scores: formattedScores,
+      winner: winner,
+      rounds: finalGameState.totalRounds
+    });
+
+    await history.save();
+    console.log(`Game history saved to MongoDB for room: ${roomCode}`);
+
+  } catch (error) {
+    console.error("Failed to save the game history to MongoDB: ", error);
+  }
+
+  await redis.del(`game:${roomCode}`);
+  return {winner, maxScore};
 };

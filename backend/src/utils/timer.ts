@@ -1,5 +1,5 @@
 import { Server } from "socket.io";
-import { nextTurn } from "../services/gameService";
+import { nextTurn, endGame } from "../services/gameService";
 
 // A Map to store active timers. Key = roomCode, Value = the Node.js interval ID
 const activeTimers = new Map<string, NodeJS.Timeout>();
@@ -20,9 +20,16 @@ export const startRoundTimer = async(io: Server, roomCode: string, duration: num
 
             try {
                 const { game, isGameOver } = await nextTurn(roomCode);
-
-                if(isGameOver) {
-                    io.to(roomCode).emit("game_over", game);
+                
+                if (isGameOver) {
+                    // THE NEW ADDITION: Process the end game!
+                    const { winner, maxScore } = await endGame(roomCode, game);
+                    
+                    // Announce the winner to the frontend!
+                    io.to(roomCode).emit("game_over", { 
+                        reason: `Game Over! 🏆 The winner is ${winner} with ${maxScore} points!`,
+                        game: game 
+                    });
                 } else {
                     io.to(roomCode).emit("turn_updated", game);
                 }
