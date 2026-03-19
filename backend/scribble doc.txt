@@ -482,3 +482,31 @@ Backend should NOT throttle drawing heavily, because:
 
 adds latency
 breaks drawing smoothness
+
+------------------------------------------------------------------
+------------------------------------------------------------------
+
+The Reconnect Handoff
+New Player: "Hey everyone, I just joined! Send me the canvas."
+
+Drawer: Uses canvas.toDataURL() to compress the drawing into a text string and says to the server: "Give this string to the new guy."
+
+Server: Forwards the string.
+
+New Player: Uses new Image() and ctx.drawImage() to instantly paste that text string onto their screen as a full picture.
+
+This guarantees your server memory stays perfectly clean, while giving players a seamless experience!
+
+------------------------------------------------------------------
+------------------------------------------------------------------
+
+Inside Docker, localhost means the container itself. If your backend looks for Redis on localhost, it will look inside the backend container, find nothing, and crash.
+Docker Compose automatically creates a magic internal DNS. You must change your connection strings in your code (or via the environment variables above) to use the service names:
+
+❌ redis://localhost:6379
+
+✅ redis://redis:6379
+
+❌ mongodb://localhost:27017/skribbl
+
+✅ mongodb://mongodb:27017/skribbl

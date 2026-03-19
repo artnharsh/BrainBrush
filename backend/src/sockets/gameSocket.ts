@@ -7,11 +7,11 @@ import { text } from "node:stream/consumers";
 import { startRoundTimer } from "../utils/timer";
 import { start } from "node:repl";
 
-export const gameSocket = async(io: Server, socket: AuthenticatedSocket) => {
-    socket.on("choose_word", async(data: {roomCode: string; word: string}) => {
+export const gameSocket = async (io: Server, socket: AuthenticatedSocket) => {
+    socket.on("choose_word", async (data: { roomCode: string; word: string }) => {
         try {
             const userId = socket.user?.id;
-            if(!userId) return;
+            if (!userId) return;
 
             // save the actual word in redis using your existing gameservice
             await updateWord(data.roomCode, data.word);
@@ -30,14 +30,14 @@ export const gameSocket = async(io: Server, socket: AuthenticatedSocket) => {
     });
 
     // player submits the guess
-    socket.on("guess_word", async(data: {roomCode: string; guess: string}) => {
-        try{
+    socket.on("guess_word", async (data: { roomCode: string; guess: string }) => {
+        try {
             const userId = socket.user?.id;
-            if(!userId) return;
+            if (!userId) return;
 
             const result = await processGuess(data.roomCode, userId, data.guess);
 
-            if(result.isCorrect) {
+            if (result.isCorrect) {
                 // hides the actual guess and displaye message
 
                 io.to(data.roomCode).emit("chat_message", {
@@ -46,7 +46,7 @@ export const gameSocket = async(io: Server, socket: AuthenticatedSocket) => {
                     type: "sussess"
                 });
 
-                if(result.game) {
+                if (result.game) {
                     io.to(data.roomCode).emit("score_update", result.game.scores);
                 }
             } else {
@@ -59,5 +59,16 @@ export const gameSocket = async(io: Server, socket: AuthenticatedSocket) => {
         } catch (error) {
             console.error("Error processing guess: ", error);
         }
+    });
+
+    // 1. New player asks for the current picture
+    socket.on("request_canvas_sync", (roomCode: string) => {
+        // We just broadcast this to the room. (Only the drawer will respond to it)
+        socket.to(roomCode).emit("send_canvas_snapshot", { targetSocketId: socket.id });
+    });
+
+    // 2. The Drawer replies with the picture, and we forward it to the new player
+    socket.on("deliver_canvas_snapshot", (data: { targetSocketId: string; imageBase64: string }) => {
+        io.to(data.targetSocketId).emit("receive_canvas_snapshot", data.imageBase64);
     });
 };

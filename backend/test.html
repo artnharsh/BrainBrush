@@ -346,6 +346,34 @@
             socket.on("draw_line", (data) => drawLine(data.x0, data.y0, data.x1, data.y1, data.color, data.width));
             socket.on("clear_canvas", () => ctx.clearRect(0, 0, canvas.width, canvas.height));
             socket.on("error", (msg) => alert("Error: " + msg));
+        
+            // --- RECONNECT LOGIC ---
+
+            // 1. When we join a game that is already running, ask for the picture!
+            socket.on("game_started", (state) => {
+                updateGameUI(state); // Load the UI
+                socket.emit("request_canvas_sync", currentRoomCode); // Ask for the canvas
+            });
+
+            // 2. DRAWER ONLY: The server is asking YOU for a picture of the canvas
+            socket.on("send_canvas_snapshot", (data) => {
+                if (currentDrawer !== myUserId) return; // Only the drawer should answer!
+                
+                const imageBase64 = canvas.toDataURL(); // Takes the snapshot instantly
+                socket.emit("deliver_canvas_snapshot", { 
+                    targetSocketId: data.targetSocketId, 
+                    imageBase64: imageBase64 
+                });
+            });
+
+            // 3. NEW PLAYER ONLY: Receive the picture and slap it on the canvas
+            socket.on("receive_canvas_snapshot", (imageBase64) => {
+                const img = new Image();
+                img.onload = () => {
+                    ctx.drawImage(img, 0, 0); // Draw the image onto our blank canvas
+                };
+                img.src = imageBase64;
+            });
         }
 
         // --- BUTTON ACTIONS ---
