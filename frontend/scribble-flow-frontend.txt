@@ -1,0 +1,263 @@
+🟢 Day 1 — Setup + Routing + Styling
+Setup Vite + TS + Tailwind
+Create:
+
+App.tsx
+
+routes.tsx
+
+main.tsx
+
+Pages:
+
+LoginPage
+
+LobbyPage
+
+GamePage
+
+Goal:
+App runs + routing works
+
+➕ Added from previous plan:
+
+NPM Installs: Make sure to explicitly install zustand, socket.io-client, react-router-dom, and axios.
+
+Create: src/index.css (To hold your global Tailwind @tailwind directives).
+
+🟢 Day 2 — API + GLOBAL GAME STATE (CRITICAL FIX)
+Create:
+
+api/axiosClient.ts
+
+store/useGameStore.ts
+
+Store must include:
+
+user
+
+roomCode
+
+players[]
+
+scores
+
+currentDrawer
+
+word
+
+timer
+
+messages[]
+
+gameStatus
+
+⚠️ This is your single source of truth
+Goal:
+Frontend can call backend + store full game state
+
+➕ Added from previous plan:
+
+Axios Interceptor: Add a request interceptor in axiosClient.ts to automatically attach the JWT token to the Authorization header for every request.
+
+Global Error Handling: Catch 401 Unauthorized errors globally to clear the store if a token expires.
+
+🟢 Day 3 — Google OAuth (FIXED)
+LoginPage:
+
+"Continue with Google" button
+
+Flow:
+
+Frontend → /auth/google
+
+Backend → JWT
+
+Frontend → store token
+
+Add:
+
+ProtectedRoute
+
+Goal:
+Auth works with JWT + Google
+
+➕ Added from previous plan:
+
+Storage: Explicitly save that JWT to localStorage so it persists if the user closes the tab.
+
+Email/Password Fallback: Keep the standard email/password inputs if you still want to support non-Google users based on our backend setup.
+
+🟢 Day 4 — Socket Setup + Sync System (IMPORTANT)
+Create:
+
+socketClient.ts
+
+useSocket.ts
+
+Add:
+
+auto reconnect
+
+connection status
+
+🚨 CRITICAL ADDITION:
+
+sync_state event
+
+Flow:
+
+on reconnect:
+server → send full game state
+frontend → replace Zustand store
+
+Goal:
+No desync on refresh/reconnect
+
+➕ Added from previous plan:
+
+Auth Handshake: Initialize the socket connection by passing the JWT from local storage into the auth: { token } object so the backend knows who is connecting.
+
+🟢 Day 5 — Lobby System
+Create:
+
+LobbyPage
+
+PlayerList
+
+Loader
+
+Features:
+
+create room
+
+join room
+
+show players
+
+host controls
+
+Socket events:
+
+create_room
+
+join_room
+
+player_list
+
+Goal:
+players join lobby in realtime
+
+➕ Added from previous plan:
+
+Host Logic: The "Start Game" button should only be rendered/visible if store.user.id === store.hostId.
+
+🟢 Day 6 — Canvas Drawing (Correct Way)
+Create:
+
+CanvasBoard
+
+drawUtils
+
+canvasScale
+
+Handle:
+
+mousedown / move / up
+
+🚨 FIX:
+
+DPI scaling
+
+coordinate normalization
+
+Goal:
+accurate drawing across devices
+
+➕ Added from previous plan:
+
+Basic Socket Events: Hook up the socket.emit("draw_line") on mouse move, and socket.on("draw_line") to render remote lines.
+
+🟢 Day 7 — Drawing Optimization + Spam Protection
+Create:
+
+throttle.ts
+
+useThrottle.ts
+
+canvasSnapshot.ts
+
+Add:
+
+Throttling
+
+draw events → 30ms
+
+Snapshot
+
+new user → load canvas instantly
+
+Spam protection
+
+guess input throttle
+
+chat throttle
+
+Goal:
+stable + efficient realtime system
+
+➕ Added from previous plan:
+
+The Snapshot Trick: Wire up canvas.toDataURL() for the Drawer to encode the image, and new Image() / ctx.drawImage() for the Reconnecting User to decode and paste it.
+
+🟢 Day 8 — Game System Integration + Polish
+Components:
+
+ChatBox
+
+Timer
+
+ScoreBoard
+
+WordSelector
+
+ErrorBoundary
+
+Features:
+
+guess system
+
+score update
+
+timer UI
+
+turn UI
+
+Add:
+
+Reconnect handling
+
+auto rejoin room
+
+restore state
+
+UX polish
+
+loading states
+
+error toasts
+
+responsive UI
+
+Goal:
+Complete, playable, production-ready game.
+
+➕ Added from previous plan (Days 8, 9, 10 combined):
+
+Socket Events: guess_word, chat_message, turn_updated, word_chosen, game_over.
+
+Visual Cues: Make "Correct Guess!" messages render with green text in the ChatBox.
+
+Word Selection UI: When turn_updated fires, pop up the 3 buttons for the current drawer to pick a word.
+
+Deployment: Deploy the final React build to Vercel or Netlify.

@@ -1,0 +1,23 @@
+1. Zustand (Global State Management)
+What it is: A tiny, incredibly fast library for managing global state in React. It is the modern alternative to Redux (which is too bulky) and React Context (which has performance issues).
+
+The Problem it Solves (Prop Drilling): If your App holds the timer state, but your TimerDisplay component is nested 5 levels deep, you normally have to pass the timer down through 5 layers of components as a "prop". This is messy.
+
+Why we use it instead of React Context: React Context is notorious for causing unnecessary re-renders. If you put the timer and the chatMessages in the same React Context, every time the timer ticks down by 1 second, the Chat Box re-renders! Zustand uses strict selectors, meaning the Chat Box only re-renders when a message is added, ignoring the timer completely.
+
+How we use it in Skribbl: We created a useGameStore hook. Now, our Canvas, Chat, and Scoreboard can instantly grab the exact same currentDrawer or roomCode from anywhere in the app, and update it globally without passing a single prop.
+
+-------------------------------------------------------------------------------------------------------------------------
+-------------------------------------------------------------------------------------------------------------------------
+
+2. Axios Interceptors
+What it is: A piece of code that acts like a "checkpoint" or "toll booth" that every single HTTP request and response must pass through before reaching its destination.
+
+The Problem it Solves: When a user logs in, the backend gives them a JWT (Token). To prove who they are, the user must send that token with every single API request. Writing headers: { Authorization: token } on 50 different API calls across your app is repetitive and error-prone.
+
+How we use it in Skribbl: 1. Request Interceptor: We intercept every outgoing request to the backend and automatically staple the JWT token to it.
+2. Response Interceptor: We intercept every incoming response from the backend. If the backend replies with a 401 Unauthorized (meaning the token expired), we automatically wipe the Zustand store and kick the user back to the Login screen, no matter what page they were on.
+
+-------------------------------------------------------------------------------------------------------------------------
+-------------------------------------------------------------------------------------------------------------------------
+
