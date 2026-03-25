@@ -21,3 +21,54 @@ How we use it in Skribbl: 1. Request Interceptor: We intercept every outgoing re
 -------------------------------------------------------------------------------------------------------------------------
 -------------------------------------------------------------------------------------------------------------------------
 
+Day 3 Concepts
+1. Protected Routes (Client-Side Security)
+What it is: A wrapper component in React Router that checks if a user has permission to view a page before rendering it.
+
+Why we use it: If you don't use protected routes, a user who isn't logged in can just type localhost:5173/lobby into their URL bar and bypass the login screen.
+
+How it works: It checks the global state (or localStorage) for a valid token. If it exists, it returns <Outlet /> (which tells React Router to render the requested page). If it doesn't exist, it returns <Navigate to="/" /> to force them back to the login screen.
+
+2. OAuth Flow (Delegated Authentication)
+What it is: Allowing a trusted third party (Google, GitHub, Apple) to verify a user's identity so you don't have to manage their passwords.
+
+The Architecture (Why the frontend sends a token to the backend): When the user clicks "Continue with Google," Google gives the frontend a secure token. The frontend cannot be trusted to just say "I'm authenticated!" It must send that Google token to your backend. Your backend then asks Google's servers "Is this real?", and if Google says yes, your backend generates your app's custom JWT and sends it back to the frontend.
+
+Token Hydration: If a user refreshes a React SPA, global state (Zustand/Redux) is destroyed. You must "hydrate" the state on the initial load by parsing the JWT from localStorage.
+
+Race Conditions in Routing: If a Route Guard evaluates global state before the app finishes hydrating, authenticated users will be falsely redirected to the login screen.
+
+Client vs Server OAuth: Client-side OAuth (@react-oauth/google) keeps the user on the SPA without screen flashes. Server-side OAuth requires redirects and "Success Pages" to catch URL parameters.
+
+-------------------------------------------------------------------------------------------------------------------------
+-------------------------------------------------------------------------------------------------------------------------
+
+Day 3 (Authentication & Architecture)
+
+1. Server-Side OAuth vs. Client-Side OAuth
+What we used: Server-Side OAuth (Passport.js).
+
+How it works: The React SPA physically redirects the browser (window.location.href) to the Express backend. The backend handles the secure handshake with Google, generates a JWT, and redirects the browser back to React.
+
+Why it's secure: The Google Client Secret never touches the frontend. The backend handles the entire cryptographic verification.
+
+2. The Token Hand-Off (res.redirect vs res.json)
+The Problem: When a backend finishes logging a user in, calling res.json(token) just renders raw text on a blank screen. A React app on a different port (5173) cannot read it.
+
+The Solution: The backend must use res.redirect to send the user back to a specific React route (e.g., /auth/success?token=xyz). React then acts as a "catcher's mitt," extracting the token from the URL, saving it to global state, and silently moving the user to the Lobby.
+
+3. JWT Storage: localStorage vs HttpOnly Cookies
+localStorage (What we chose): Vulnerable to XSS (Cross-Site Scripting) attacks if a hacker injects malicious code. However, it completely bypasses CORS (Cross-Origin Resource Sharing) headaches across different ports, and makes it incredibly easy to attach the token to WebSocket (Socket.io) connections.
+
+HttpOnly Cookies (The Enterprise Alternative): Immune to XSS because JavaScript cannot read them. However, they require complex CORS configurations and make establishing initial Socket.io handshakes much more difficult.
+
+The Architect's Decision: For a low-stakes gaming SPA with WebSockets, localStorage is the pragmatic choice. For a banking app, HttpOnly cookies are mandatory.
+
+4. React 18 Strict Mode (The Double-Mount Bug)
+The Problem: In development mode, React 18 intentionally mounts, unmounts, and re-mounts components in a split second to test for memory leaks. This causes useEffect to fire twice, which can break one-time logic (like processing a token from a URL, because the first pass already deleted the token!).
+
+The Fix: Using useRef(false) as a persistent boolean flag inside the component. If the flag is true, we immediately return and block the second render from executing the logic again
+
+-------------------------------------------------------------------------------------------------------------------------
+-------------------------------------------------------------------------------------------------------------------------
+

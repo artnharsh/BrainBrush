@@ -261,3 +261,36 @@ Visual Cues: Make "Correct Guess!" messages render with green text in the ChatBo
 Word Selection UI: When turn_updated fires, pop up the 3 buttons for the current drawer to pick a word.
 
 Deployment: Deploy the final React build to Vercel or Netlify.
+
+folder Structure
+
+frontend/
+├── public/
+├── src/
+│   ├── api/
+│   │   └── axiosClient.ts
+│   ├── socket/
+│   │   └── socketClient.ts
+│   ├── store/                 <-- Changed to store for Zustand
+│   │   └── useGameStore.ts
+│   ├── hooks/
+│   │   ├── useSocket.ts
+│   │   └── useThrottle.ts
+│   ├── components/
+│   │   ├── ProtectedRoute.tsx <-- Added for security
+│   │   ├── CanvasBoard.tsx
+│   │   ├── ChatBox.tsx
+│   │   ├── PlayerList.tsx
+│   │   ├── Timer.tsx
+│   │   ├── ScoreBoard.tsx
+│   │   └── WordSelector.tsx
+│   ├── pages/
+│   │   ├── LoginPage.tsx
+│   │   ├── LobbyPage.tsx
+│   │   └── GamePage.tsx
+│   ├── utils/
+│   ├── types/
+│   ├── routes.tsx
+│   ├── App.tsx
+│   ├── main.tsx
+│   └── index.css              <-- Added for Tailwind/Global styles
