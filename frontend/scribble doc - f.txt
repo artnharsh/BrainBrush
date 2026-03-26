@@ -90,3 +90,36 @@ The Architecture: The Backend Server is the absolute "Single Source of Truth" (S
 -------------------------------------------------------------------------------------------------------------------------
 -------------------------------------------------------------------------------------------------------------------------
 
+Day 5 (Lobby System Architecture)
+1. State-Driven Views vs. URL-Driven Views
+What we did: We combined the "Create/Join" screen and the "Waiting Room" screen into a single React component (LobbyPage.tsx).
+
+How we did it: We used a simple conditional render based on the Zustand store: if (!roomCode) { show Gateway } else { show Waiting Room }.
+
+Why we did it: It creates a lightning-fast, seamless user experience without triggering a full page route change.
+
+Why not the alternative (using React Router for /lobby and /room/ABCD): If we used URL routing, a user could manually type /room/ABCD into their browser before their WebSocket has successfully connected or authenticated. By driving the UI strictly through Zustand's roomCode state, we mathematically guarantee that a user can only see the Waiting Room if the server has explicitly placed them there via a socket event.
+
+2. Host Authority (Frontend Role-Based Access)
+What we did: We restricted the "Start Game" button so only the room creator can see it.
+
+How we did it: We compare the currently logged-in user's ID with the room's Host ID: user?.id === hostId.
+
+Why we did it: To prevent chaos. In multiplayer games, State Transitions (moving from Lobby to Playing) must be triggered by a single, authoritative source.
+
+Why not the alternative (just letting anyone click start): Race conditions. If two players click "Start" at the exact same millisecond, the server receives two conflicting events, which can corrupt the game timer or round counter.
+
+⚠️ The Interview Trap: If an interviewer asks, "Is hiding the button enough?" Your answer must be: "No. Frontend hiding is just for User Experience. A hacker could still manually emit the 'start_game' socket event via the console. The backend must also verify that the socket ID requesting the game start matches the host ID in the database/memory."
+
+3. Server-Acknowledged State vs. Optimistic UI
+What we did: When a user clicks "Create Room", we set isLoading(true) and show a bouncy loading screen. We do not manually set the roomCode on the frontend.
+
+How we did it: socket.emit("create_room") sends the request, and the frontend literally just sits and waits. It only changes when the server fires back the sync_state event.
+
+Why we did it: Because WebSockets are asynchronous and subject to network latency.
+
+Why not the alternative (Optimistic UI): In a standard web app (like liking a tweet), you use "Optimistic UI"—you make the heart turn red instantly before the server replies to make the app feel fast. You cannot use Optimistic UI in multiplayer matchmaking. If you optimistically guess a room creation succeeded, but the server crashes, the user is stuck in a phantom room that doesn't exist. The frontend must be a "dumb terminal" that only updates when the server gives it explicit permission.
+
+-------------------------------------------------------------------------------------------------------------------------
+-------------------------------------------------------------------------------------------------------------------------
+
