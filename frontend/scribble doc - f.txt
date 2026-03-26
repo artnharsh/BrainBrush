@@ -72,3 +72,21 @@ The Fix: Using useRef(false) as a persistent boolean flag inside the component. 
 -------------------------------------------------------------------------------------------------------------------------
 -------------------------------------------------------------------------------------------------------------------------
 
+1. The "Singleton" Socket Pattern
+The Problem: React is reactive. If you put const socket = io() directly inside a component, React will create a brand new, separate WebSocket connection to the server every single time that component re-renders. A dozen users could instantly spawn thousands of ghost connections and crash your Node.js server.
+
+The Solution: We create a separate socketClient.ts file that initializes exactly one instance of the socket outside the React component tree. We export that single instance (a "Singleton") so the entire app shares the exact same connection lifeline.
+
+2. The Authentication Handshake
+How it works: We set autoConnect: false so the socket doesn't fire immediately. First, we pull the JWT from localStorage, inject it into the socket payload (socket.auth = { token }), and then manually call socket.connect().
+
+Why it matters: The backend server uses a middleware to intercept the connection attempt, verify the JWT, and immediately attach the user's ID to that specific socket socket instance. This ensures no unauthenticated users can access the game rooms or emit drawing events.
+
+3. Server-Driven UI (Single Source of Truth)
+The Challenge: In multiplayer games, a user might experience a brief internet drop, or hit "refresh" on their browser. This completely wipes their local React state, causing them to desync from the game.
+
+The Architecture: The Backend Server is the absolute "Single Source of Truth" (SSOT). We built a master sync_state event listener. When a user reconnects, the backend blasts them with a JSON object containing the exact current state of the game (players, current drawer, timer, word choices). The frontend blindly accepts this data and uses syncGameState in Zustand to overwrite its local state, instantly snapping the user back into sync with everyone else.
+
+-------------------------------------------------------------------------------------------------------------------------
+-------------------------------------------------------------------------------------------------------------------------
+

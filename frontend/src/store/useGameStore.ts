@@ -45,21 +45,18 @@ interface GameState {
   addMessage: (msg: ChatMessage) => void;
   updateScores: (scores: Record<string, number>) => void;
   
-  // A master sync function for when a user reconnects!
+  // Master sync function for reconnects
   syncGameState: (fullState: Partial<GameState>) => void;
   resetRoom: () => void;
 }
 
 // --- STORE IMPLEMENTATION ---
 export const useGameStore = create<GameState>((set) => ({
-  // Initial State Values
   user: null,
   isAuthenticated: false,
-  
   roomCode: null,
   players: [],
   hostId: null,
-
   gameStatus: 'lobby',
   currentDrawer: null,
   word: null,
@@ -70,7 +67,6 @@ export const useGameStore = create<GameState>((set) => ({
   currentRound: 0,
   totalRounds: 3,
 
-  // Action Implementations
   setAuth: (user, token) => {
     localStorage.setItem('token', token);
     set({ user, isAuthenticated: true });
@@ -100,10 +96,6 @@ export const useGameStore = create<GameState>((set) => ({
   syncGameState: (fullState) => set((state) => ({ ...state, ...fullState })),
 
   resetRoom: () => set({ 
-    gameStatus: 'lobby', 
-    currentDrawer: null, 
-    word: null, 
-    timer: 60, 
-    messages: [] 
+    gameStatus: 'lobby', currentDrawer: null, word: null, timer: 60, messages: [] 
   }),
 }));
