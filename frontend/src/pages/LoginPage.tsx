@@ -1,4 +1,18 @@
+import { useEffect } from "react";
+import { useNavigate } from "react-router-dom";
+import { useGameStore } from "../store/useGameStore";
+
 export default function LoginPage() {
+  const navigate = useNavigate();
+  const isAuthenticated = useGameStore((state) => state.isAuthenticated);
+
+  useEffect(() => {
+    // If the user is already logged in, don't let them see the login screen!
+    if (isAuthenticated) {
+      navigate("/lobby", { replace: true });
+    }
+  }, [isAuthenticated, navigate]);
+  
   const handleGoogleLogin = () => {
     // Send the browser directly to the Express backend
     console.log("🚨 The Google button was clicked!");

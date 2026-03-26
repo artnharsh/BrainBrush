@@ -123,3 +123,86 @@ Why not the alternative (Optimistic UI): In a standard web app (like liking a tw
 -------------------------------------------------------------------------------------------------------------------------
 -------------------------------------------------------------------------------------------------------------------------
 
+Day 5.5 (Frontend & Backend Alignment)
+1. The WebSocket "API Contract"
+The Problem: Unlike REST APIs (which throw 404 or 400 HTTP errors if you hit the wrong endpoint), WebSockets fail silently. If the frontend emits "join_room" but the backend is listening for "joinRoom", the app just sits there forever.
+
+What we did: We audited the React emitters and listeners to perfectly match the Express backend's exact string names ("room_created", "player_list").
+
+The Senior Architect Answer: "In a production environment, I wouldn't hardcode these strings in both repositories. I would create a shared events.ts file containing a TypeScript Enum (e.g., SocketEvents.JOIN_ROOM) and import it into both the frontend and backend. This completely eliminates typo-driven bugs and silent failures."
+
+2. Payload Serialization (Strings vs. Objects)
+The Problem: The frontend was emitting an object { roomCode: "ABCD" }, but the backend was strictly expecting a primitive string (roomCode: string). When the backend tried to use the object as a string, Redis failed to find the room.
+
+What we did: We updated the frontend to emit exactly what the backend expects: socket.emit("join_room", joinCode).
+
+The Trade-off: Emitting primitives (strings/numbers) is cleaner for simple actions. However, emitting objects (like { roomCode, password }) is more extensible if you plan to add features later without breaking the API contract. In this case, we conformed to the backend's primitive expectation to keep the codebase moving.
+
+3. Real-Time Error Propagation
+The Problem: Standard HTTP error handling (try/catch with Axios) doesn't work for WebSockets. If a user tries to join a room that doesn't exist, the backend throws an error, but the frontend's try/catch won't see it because the socket connection didn't crash.
+
+What we did: The backend catches the Redis error and actively emits a dedicated error event: socket.emit("error", "Room not found"). The frontend has a dedicated listener socket.on("error", ...) to catch this and alert the user.
+
+Why it matters: This is the only way to provide a good User Experience (UX) over WebSockets. The UI must be able to gracefully reset its loading state if the server rejects a real-time action.
+
+-------------------------------------------------------------------------------------------------------------------------
+-------------------------------------------------------------------------------------------------------------------------
+
+Day 6 (Edge Cases & Multiplexing)
+1. Connection Multiplexing (The "Two Tabs" Problem)
+The Interview Question: "If a user opens your multiplayer app in two separate browser tabs, and then closes Tab A, what happens to Tab B?"
+
+The Trap: Junior developers will say, "Nothing, they stay logged in."
+
+The Senior Answer: "If not handled correctly, Tab B will experience a 'Ghost Disconnect'. Because Socket.io tracks connections by the tab (socket.id), closing Tab A fires a disconnect event to the backend. If the backend blindly deletes the user from the database on disconnect, Tab B will suddenly be kicked out of the game despite remaining open."
+
+The Enterprise Architecture Fix: "To solve this, the backend must implement Connection Multiplexing. Instead of mapping 1 User to 1 Socket, Redis should store a Hash mapping UserId -> Array of Socket IDs [socket_1, socket_2]. When a socket disconnects, we remove only that specific socket.id from the array. We only trigger the actual 'Leave Room' logic if the array length drops to 0 (meaning they closed every tab)."
+
+2. The SPA "Back Button" Illusion (Auth Guarding)
+The Interview Question: "A user logs into a React Single Page Application (SPA), clicks the browser's back button, and sees the Login screen again. Are they logged out? How do you fix this?"
+
+The Answer: "No, they are still completely authenticated because their JWT is safely stored in localStorage (or an HttpOnly cookie). They are just looking at the wrong view. Because SPAs don't reload the page, the React Router simply rendered the / route."
+
+The Fix (Route Guards): "We implement a Route Guard on the Login Component using useEffect. The moment the component mounts, it checks the global auth state. If isAuthenticated is true, it instantly forces a Maps('/lobby', { replace: true }), bouncing the user away from the login screen before they can even interact with it."
+
+3. Explicit vs. Implicit State Teardown
+The Interview Question: "Why should we build a physical 'Leave Room' button if closing the browser tab automatically triggers a disconnect event anyway?"
+
+The Answer: "Relying strictly on TCP disconnects (Implicit Teardown) is dangerous because socket timeouts can take several seconds to register if a user's internet drops. Providing an explicit socket.emit("leave_room") button (Explicit Teardown) allows the frontend to instantly clear its own local state (zustand.resetRoom()) and immediately tell the server to clean up the Redis memory, resulting in a much faster, predictable, and bug-free user experience."
+
+-------------------------------------------------------------------------------------------------------------------------
+-------------------------------------------------------------------------------------------------------------------------
+
+The "Hybrid" Approach (Optimistic UI + Backend Relay)
+1. The Drawer's Frontend (Optimistic UI)
+When the person who is drawing moves their mouse, their React frontend does not wait for the server. It instantly draws the line on their own HTML Canvas (0 millisecond latency). At the exact same time, it fires socket.emit("draw_line", coordinates) to the backend.
+
+Why: If the drawer had to wait for the backend to approve and send the line back before they could see it on their screen, the pen would feel laggy, floaty, and terrible to use.
+
+2. The Backend (The Bouncer & Relay)
+The Express server receives the coordinates. It does a quick security check: "Is this socket ID actually the current drawer?" If yes, it immediately broadcasts those coordinates to everyone else in the room using socket.to(roomCode).emit("draw_line").
+
+Why: The backend acts as the source of truth to prevent hacking. If we did pure "Frontend to Frontend" (Peer-to-Peer), hackers could easily inject code to draw on the canvas when it wasn't their turn.
+
+3. The Guessers' Frontends (The Receivers)
+The other players in the room have a passive React Canvas. It sits there listening for socket.on("draw_line"). When it receives the coordinates from the backend, it silently draws them on the screen.
+
+Here is the breakdown for your interview notepad. Copy this down:
+
+📓 Interview Notepad: Day 7 (Canvas Architecture & Latency)
+1. Optimistic UI in Multiplayer Gaming
+The Problem: If a user’s local actions (like drawing a line or moving a character) must make a round-trip to the server before rendering on their screen, the user will experience "Input Lag" (latency).
+
+The Solution (Optimistic UI): The frontend instantly renders the user's action locally, assuming the server will accept it. Simultaneously, it emits the action to the server in the background.
+
+Application in Skribbl: The Drawer's canvas draws the ink instantly via native mouse events. It does not listen to its own socket emissions.
+
+2. Client-Server Relay vs. Peer-to-Peer (WebRTC)
+The Interview Question: "Why use a Node.js server to relay drawing coordinates instead of connecting the browsers directly using WebRTC?"
+
+The Answer: 1. Security / RBAC: A centralized server can verify if the user emitting the draw events is actually the active drawer. Peer-to-peer trusts the clients too much.
+2. Late Joiners (State Sync): If a new player joins halfway through a round, WebRTC struggles to provide the historical canvas state. With a centralized server, the backend can request a base64 image snapshot from the current drawer and hand it to the late joiner (which we built in gameSocket.ts!).
+
+-------------------------------------------------------------------------------------------------------------------------
+-------------------------------------------------------------------------------------------------------------------------
+
