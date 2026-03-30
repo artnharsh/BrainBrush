@@ -206,3 +206,33 @@ The Answer: 1. Security / RBAC: A centralized server can verify if the user emit
 -------------------------------------------------------------------------------------------------------------------------
 -------------------------------------------------------------------------------------------------------------------------
 
+DPI Scaling: Making the canvas sharp on Retina/High-Refresh displays.
+
+Coordinate Normalization: Converting exact pixels (e.g., X: 450) into percentages (X: 0.45) so the drawing perfectly scales to any screen size.
+
+High-Frequency State Avoidance: React useState is too slow for 60FPS mouse tracking. We must use useRef to completely bypass the React render cycle while drawing.
+
+-------------------------------------------------------------------------------------------------------------------------
+-------------------------------------------------------------------------------------------------------------------------
+
+Day 6 (The Canvas Architect)
+If an interviewer asks you about this specific React component, this is how you blow them away.
+
+1. High-Frequency State Mutability (useRef vs useState)
+The Trap: Junior developers use const [mouseCoords, setMouseCoords] = useState().
+
+The Senior Answer: "Using useState for mouse coordinates during a mousemove event forces the React Reconciliation Engine to re-evaluate and re-render the entire component tree 60 times per second. This causes massive input lag. Instead, I bypassed React's render cycle entirely by storing isDrawing and currentPos inside useRef. The Canvas API is inherently imperative, so mutating refs allows us to draw at 0ms latency without punishing the React Virtual DOM."
+
+2. Resolution Independence (Coordinate Normalization)
+The Trap: Sending absolute pixels: socket.emit("draw", { x: 500, y: 500 }).
+
+The Senior Answer: "A player on a 1080p monitor has a massive canvas, while a player on an iPhone has a tiny canvas. If we emit absolute pixels, the iPhone player will see lines drawing completely off their screen. I implemented Coordinate Normalization. Before sending data, I divide the X/Y coordinates by the user's specific canvas width/height to get a decimal percentage (0.45). When the receiving client gets that data, it multiplies 0.45 by their own canvas width to perfectly reconstruct the geometry relative to their screen size."
+
+3. The Retina Display Blur (Device Pixel Ratio)
+The Trap: HTML canvases look incredibly fuzzy and pixelated on modern MacBooks or smartphones.
+
+The Senior Answer: "HTML Canvas maps 1 internal pixel to 1 CSS pixel by default. Modern 'Retina' displays pack 2 or 3 physical pixels into a single CSS pixel. To fix the blur, I queried window.devicePixelRatio. I multiplied the internal canvas.width and canvas.height by that ratio, forced the CSS size to remain standard, and used ctx.scale() to align the coordinate grid. This guarantees a razor-sharp vector-like drawing experience on any high-end display."
+
+-------------------------------------------------------------------------------------------------------------------------
+-------------------------------------------------------------------------------------------------------------------------
+
