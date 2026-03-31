@@ -236,3 +236,26 @@ The Senior Answer: "HTML Canvas maps 1 internal pixel to 1 CSS pixel by default.
 -------------------------------------------------------------------------------------------------------------------------
 -------------------------------------------------------------------------------------------------------------------------
 
+Day 7 (Optimization & Sync Architecture)
+1. High-Frequency Event Throttling
+The Interview Question: "If a user is drawing on an HTML canvas, the mousemove event fires up to 100 times per second. How do you handle sending that data over WebSockets without crashing your Node.js server?"
+
+The Trap: Junior developers will put socket.emit("draw_line") directly inside the mousemove handler, effectively accidentally DDOSing their own server with thousands of micro-payloads.
+
+The Senior Answer: "I implemented Event Throttling on the client side. I wrote a custom utility function that limits the socket emissions to once every 30 milliseconds (roughly 30 frames per second). I wrapped the emitter in a useMemo hook to preserve the throttled instance across React renders. This perfectly balances a buttery-smooth drawing experience for the user with a highly optimized, lightweight network payload for the server."
+
+2. State Synchronization for Late Joiners (The Snapshot Trick)
+The Interview Question: "WebSockets are real-time, meaning they don't natively store past events. If a player joins your game 45 seconds into a round, how do they see what has already been drawn?"
+
+The Trap: Attempting to save every single X/Y coordinate of every line drawn into a massive array in the Redis backend, and sending a 10MB array of numbers to the new player.
+
+The Senior Answer: "Instead of storing thousands of coordinate vectors in memory, I use a Peer-Assisted Snapshot architecture. When a new user joins, the backend sends a "request_sync" event specifically to the current active drawer. The drawer's React client silently intercepts this, runs canvas.toDataURL(), and sends a lightweight, compressed Base64 string of the image back through the server to the new user. The new user's canvas uses ctx.drawImage() to instantly paste the historical state, and then immediately resumes listening for live coordinate vectors."
+
+3. Frontend/Backend Event Hydration (The "Start Game" Bug)
+The Concept: A backend transition is useless if the frontend isn't listening for it.
+
+The Real-World Application: "When architecting the Lobby-to-Game transition, I ensured that the backend acts as the authoritative state machine. Clicking 'Start Game' does not change the React UI directly. It tells the server to generate the game state in Redis and emit "game_started". Only when the React useSocket hook successfully catches that "game_started" broadcast does it trigger the Zustand store update, instantly tearing down the Lobby UI and mounting the Game Board UI for all players simultaneously."
+
+-------------------------------------------------------------------------------------------------------------------------
+-------------------------------------------------------------------------------------------------------------------------
+

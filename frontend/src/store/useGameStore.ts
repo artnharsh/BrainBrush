@@ -96,6 +96,13 @@ export const useGameStore = create<GameState>((set) => ({
   syncGameState: (fullState) => set((state) => ({ ...state, ...fullState })),
 
   resetRoom: () => set({ 
-    gameStatus: 'lobby', currentDrawer: null, word: null, timer: 60, messages: [] 
+    roomCode: null,     // <-- Added this to kick you out of the Waiting Room UI
+    players: [],        // <-- Added this to clear the player list
+    hostId: null,       // <-- Added this to remove host privileges
+    gameStatus: 'lobby', 
+    currentDrawer: null, 
+    word: null, 
+    timer: 60, 
+    messages: [] 
   }),
 }));
