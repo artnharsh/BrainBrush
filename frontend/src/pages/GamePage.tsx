@@ -6,7 +6,12 @@ import GameHeader from "../components/GameHeader";
 import CanvasBoard from "../components/CanvasBoard";
 import ChatBox from "../components/ChatBox";
 
+import { useSocket } from "../hooks/useSocket";
+
 export default function GamePage() {
+
+  useSocket();
+
   const navigate = useNavigate();
   const gameStatus = useGameStore((state) => state.gameStatus);
 

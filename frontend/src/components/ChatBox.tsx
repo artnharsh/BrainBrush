@@ -1,13 +1,12 @@
 // src/components/ChatBox.tsx
 import { useState, useRef, useEffect } from "react";
-import { useSocket } from "../hooks/useSocket";
+import { socket } from "../socketClient";
 import { useGameStore } from "../store/useGameStore";
 
 export default function ChatBox() {
   const [guess, setGuess] = useState("");
   const messagesEndRef = useRef<HTMLDivElement>(null);
   
-  const { socket } = useSocket();
   const roomCode = useGameStore((state) => state.roomCode);
   const messages = useGameStore((state) => state.messages);
   const user = useGameStore((state) => state.user);
@@ -24,8 +23,13 @@ export default function ChatBox() {
     e.preventDefault();
     if (!guess.trim() || !roomCode || isMyTurn) return;
 
-    // Send the guess to the backend!
-    socket.emit("guess_word", { roomCode, guess });
+    // 🚨 Pass the username so the backend doesn't have to guess!
+    socket.emit("guess_word", { 
+      roomCode, 
+      guess, 
+      username: user?.username || "Guest" 
+    });
+    
     setGuess("");
   };
 

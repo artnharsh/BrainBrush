@@ -1,37 +1,42 @@
 // src/components/WordSelectionModal.tsx
-import { useSocket } from "../hooks/useSocket";
 import { useGameStore } from "../store/useGameStore";
-
-// Hardcoded for now, we can randomize these from the backend later!
-const RANDOM_WORDS = ["APPLE", "GUITAR", "ELEPHANT"];
+import { socket } from "../socketClient";
 
 export default function WordSelectionModal() {
-  const { socket } = useSocket();
   const roomCode = useGameStore((state) => state.roomCode);
   const user = useGameStore((state) => state.user);
   const currentDrawer = useGameStore((state) => state.currentDrawer);
-  const word = useGameStore((state) => state.word); // The currently active word
+  const word = useGameStore((state) => state.word); 
+  const wordChoices = useGameStore((state) => state.wordChoices); 
 
   const isMyTurn = user?.id === currentDrawer;
 
-  // 1. If a word is already chosen, hide this modal completely
+  // X-RAY DEBUGGING LOGS: Look at your browser console!
+  console.log("🕵️ Modal Debug -> My User ID:", user?.id);
+  console.log("🕵️ Modal Debug -> Current Drawer ID:", currentDrawer);
+  console.log("🕵️ Modal Debug -> Word Choices:", wordChoices);
+
   if (word) return null;
 
-  // 2. If it's NOT my turn, show a waiting screen over the canvas
   if (!isMyTurn) {
     return (
-      <div className="absolute inset-0 z-50 bg-black/80 flex items-center justify-center rounded-xl backdrop-blur-sm">
-        <h2 className="text-3xl font-black text-white animate-pulse tracking-widest text-center px-4">
+      <div className="absolute inset-0 z-50 bg-black/80 flex flex-col items-center justify-center rounded-xl backdrop-blur-sm p-4">
+        <h2 className="text-3xl font-black text-white animate-pulse tracking-widest text-center mb-4">
           WAITING FOR DRAWER TO CHOOSE A WORD...
         </h2>
+        
+        {/* X-RAY UI: So you can see the mismatch on screen! */}
+        <div className="bg-red-500 text-white p-4 rounded-xl text-sm font-mono mt-4 text-center">
+          <p><strong>🚨 DEBUG INFO 🚨</strong></p>
+          <p>Backend says drawer is: {currentDrawer || "NULL"}</p>
+          <p>My frontend ID is: {user?.id || "NULL"}</p>
+        </div>
       </div>
     );
   }
 
-  // 3. If it IS my turn, let me click a word to start the timer!
   const handleChooseWord = (selectedWord: string) => {
     socket.emit("choose_word", { roomCode, word: selectedWord });
-    // Optimistically update our local UI so the modal closes instantly
     useGameStore.getState().syncGameState({ word: selectedWord });
   };
 
@@ -42,15 +47,21 @@ export default function WordSelectionModal() {
       </h2>
       
       <div className="flex gap-4 w-full max-w-lg">
-        {RANDOM_WORDS.map((w) => (
-          <button
-            key={w}
-            onClick={() => handleChooseWord(w)}
-            className="flex-1 bg-white hover:bg-yellow-300 text-black border-4 border-black py-4 rounded-xl font-black text-xl shadow-[6px_6px_0px_rgba(0,0,0,1)] active:translate-y-1 active:shadow-[2px_2px_0px_rgba(0,0,0,1)] transition-all"
-          >
-            {w}
-          </button>
-        ))}
+        {wordChoices && wordChoices.length > 0 ? (
+          wordChoices.map((w: string) => (
+            <button
+              key={w}
+              onClick={() => handleChooseWord(w)}
+              className="flex-1 bg-white hover:bg-yellow-300 text-black border-4 border-black py-4 rounded-xl font-black text-xl shadow-[6px_6px_0px_rgba(0,0,0,1)] active:translate-y-1 active:shadow-[2px_2px_0px_rgba(0,0,0,1)] transition-all uppercase"
+            >
+              {w}
+            </button>
+          ))
+        ) : (
+          <div className="bg-red-500 text-white p-4 font-bold rounded-xl w-full text-center">
+            🚨 ERROR: Backend didn't send any words! 🚨
+          </div>
+        )}
       </div>
     </div>
   );

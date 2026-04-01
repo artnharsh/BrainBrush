@@ -1,3 +1,4 @@
+// src/store/useGameStore.ts
 import { create } from 'zustand';
 
 // --- TYPES ---
@@ -45,7 +46,6 @@ interface GameState {
   addMessage: (msg: ChatMessage) => void;
   updateScores: (scores: Record<string, number>) => void;
   
-  // Master sync function for reconnects
   syncGameState: (fullState: Partial<GameState>) => void;
   resetRoom: () => void;
 }
@@ -83,8 +83,15 @@ export const useGameStore = create<GameState>((set) => ({
   updatePlayers: (players, hostId) => 
     set((state) => ({ players, hostId: hostId || state.hostId })),
 
+  // 🚨 THE FIX: Map backend's 'drawer' to frontend's 'currentDrawer'
   startGame: (gameState) => 
-    set({ ...gameState, gameStatus: 'playing', messages: [] }),
+    set({ 
+      ...gameState, 
+      currentDrawer: (gameState as any).drawer || gameState.currentDrawer,
+      wordChoices: (gameState as any).wordChoices || [], 
+      gameStatus: 'playing', 
+      messages: [] 
+    }),
 
   updateTimer: (timer) => set({ timer }),
 
@@ -93,12 +100,17 @@ export const useGameStore = create<GameState>((set) => ({
 
   updateScores: (scores) => set({ scores }),
 
-  syncGameState: (fullState) => set((state) => ({ ...state, ...fullState })),
+  // 🚨 THE FIX: Map it here too so mid-game turn changes work!
+  syncGameState: (fullState) => set((state) => ({ 
+    ...state, 
+    ...fullState,
+    currentDrawer: (fullState as any).drawer || fullState.currentDrawer || state.currentDrawer
+  })),
 
   resetRoom: () => set({ 
-    roomCode: null,     // <-- Added this to kick you out of the Waiting Room UI
-    players: [],        // <-- Added this to clear the player list
-    hostId: null,       // <-- Added this to remove host privileges
+    roomCode: null,     
+    players: [],        
+    hostId: null,       
     gameStatus: 'lobby', 
     currentDrawer: null, 
     word: null, 
