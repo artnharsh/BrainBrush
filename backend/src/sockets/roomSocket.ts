@@ -3,7 +3,7 @@ import { AuthenticatedSocket } from "../types/socketTypes";
 import { createRoomRedis, joinRoomRedis, leaveRoomRedis } from "../services/roomService";
 import { startGame, nextTurn, handlePlayerLeave } from "../services/gameService"; // <-- IMPORT GAME SERVICES
 import redis from "../config/redis"; // <-- IMPORT REDIS
-
+import { activeDrawers } from "./drawingSocket";
 
 export const roomSocket = (io: Server, socket: AuthenticatedSocket) => {
   // --- CREATE ROOM ---
@@ -99,6 +99,8 @@ export const roomSocket = (io: Server, socket: AuthenticatedSocket) => {
       // 2. Initialize the game state in Redis
       const gameState = await startGame(roomCode, players);
 
+      activeDrawers.set(roomCode, gameState.drawer);
+
       // 3. Broadcast the starting state to everyone in the room
       io.to(roomCode).emit("game_started", gameState);
     } catch (error) {
@@ -112,8 +114,10 @@ export const roomSocket = (io: Server, socket: AuthenticatedSocket) => {
       const { game, isGameOver } = await nextTurn(roomCode);
 
       if (isGameOver) {
+        activeDrawers.delete(roomCode);
         io.to(roomCode).emit("game_over", game);
       } else {
+        activeDrawers.set(roomCode, game.drawer);
         io.to(roomCode).emit("turn_updated", game);
       }
     } catch (error) {
@@ -144,10 +148,12 @@ export const roomSocket = (io: Server, socket: AuthenticatedSocket) => {
             io.to(roomCode).emit("game_over", { reason: "Not enough players to continue." });
           } else if (wasDrawer) {
             // The drawer rage-quit! Instantly force the next turn.
+            activeDrawers.delete(roomCode);
             const { game, isGameOver } = await nextTurn(roomCode);
             if (isGameOver) {
               io.to(roomCode).emit("game_over", game);
             } else {
+              activeDrawers.set(roomCode, game.drawer);
               io.to(roomCode).emit("turn_updated", game);
               io.to(roomCode).emit("chat_message", { 
                 sender: "System", 

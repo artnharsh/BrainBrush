@@ -1,53 +1,42 @@
-// src/sockets/drawingSocket.ts
+// backend/src/sockets/drawingSocket.ts
 import { Server } from "socket.io";
 import { AuthenticatedSocket } from "../types/socketTypes";
-import { getGameState } from "../services/gameService";
+
+export const activeDrawers = new Map<string, string>(); 
 
 export const drawingSocket = (io: Server, socket: AuthenticatedSocket) => {
-  // --- HANDLE DRAWING ---
-  socket.on(
-    "draw_line",
-    async (data: {
-      roomCode: string;
-      x0: number;
-      y0: number;
-      x1: number;
-      y1: number;
-      color: string;
-      width: number;
-    }) => {
-      try {
-        const { roomCode, ...lineData } = data;
-
-        // SECURITY CHECK: Is this user actually allowed to draw right now?
-        const game = await getGameState(roomCode);
-
-        if (game.drawer !== socket.user?.id) {
-          // If someone tries to hack the game and draw when it's not their turn, ignore them!
-          return;
-        }
-
-        // Broadcast the drawing data to EVERYONE ELSE in the room
-        // Notice we use `socket.to` instead of `io.to`.
-        // `socket.to` sends to everyone EXCEPT the person who just drew it!
-        socket.to(roomCode).emit("draw_line", lineData);
-        // console.log(`User ${socket.user?.username} drew a line in room ${roomCode}`);
-      } catch (error) {
-        console.error("Drawing error:", error);
-      }
-    },
-  );
-
-  // --- HANDLE CLEAR CANVAS ---
-  socket.on("clear_canvas", async (roomCode: string) => {
+  
+  socket.on("draw_line", (data: any) => {
     try {
-      const game = await getGameState(roomCode);
+      if (!data.roomCode) return;
+      if (activeDrawers.get(data.roomCode) !== socket.user?.id) return;
+      socket.to(data.roomCode).emit("draw_line", data);
+    } catch (error) { console.error(error); }
+  });
 
-      if (game.drawer === socket.user?.id) {
-        socket.to(roomCode).emit("clear_canvas");
-      }
-    } catch (error) {
-      console.error("Clear canvas error:", error);
-    }
+  // 🚨 NEW: Relay the erase command
+  socket.on("erase_stroke", (data: { roomCode: string; strokeId: string }) => {
+    try {
+      if (!data.roomCode) return;
+      if (activeDrawers.get(data.roomCode) !== socket.user?.id) return;
+      socket.to(data.roomCode).emit("erase_stroke", data.strokeId);
+    } catch (error) { console.error(error); }
+  });
+
+  socket.on("clear_canvas", (roomCode: string) => {
+    try {
+      if (!roomCode) return;
+      if (activeDrawers.get(roomCode) !== socket.user?.id) return;
+      socket.to(roomCode).emit("clear_canvas");
+    } catch (error) { console.error(error); }
+  });
+
+  // 🚨 UPGRADED: Relaying Vector Data instead of Images
+  socket.on("request_canvas_sync", (roomCode: string) => {
+    socket.to(roomCode).emit("send_canvas_snapshot", { targetSocketId: socket.id });
+  });
+
+  socket.on("deliver_canvas_snapshot", (data: { targetSocketId: string; segments: any[] }) => {
+    io.to(data.targetSocketId).emit("receive_canvas_snapshot", { segments: data.segments });
   });
 };

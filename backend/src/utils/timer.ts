@@ -1,7 +1,10 @@
+// backend/src/utils/timer.ts
 import { Server } from "socket.io";
 import { nextTurn, endGame } from "../services/gameService";
 
-// A Map to store active timers. Key = roomCode, Value = the Node.js interval ID
+// 🚨 IMPORT THE BOUNCER CACHE
+import { activeDrawers } from "../sockets/drawingSocket";
+
 const activeTimers = new Map<string, NodeJS.Timeout>();
 
 export const startRoundTimer = async(io: Server, roomCode: string, duration: number = 60) => {
@@ -22,15 +25,18 @@ export const startRoundTimer = async(io: Server, roomCode: string, duration: num
                 const { game, isGameOver } = await nextTurn(roomCode);
                 
                 if (isGameOver) {
-                    // THE NEW ADDITION: Process the end game!
-                    const { winner, maxScore } = await endGame(roomCode, game);
+                    // 🚨 CLEAR CACHE: Game is over
+                    activeDrawers.delete(roomCode);
                     
-                    // Announce the winner to the frontend!
+                    const { winner, maxScore } = await endGame(roomCode, game);
                     io.to(roomCode).emit("game_over", { 
                         reason: `Game Over! 🏆 The winner is ${winner} with ${maxScore} points!`,
                         game: game 
                     });
                 } else {
+                    // 🚨 UPDATE CACHE: Give the 2nd drawer permission to draw!
+                    activeDrawers.set(roomCode, game.drawer);
+                    
                     io.to(roomCode).emit("turn_updated", game);
                 }
             } catch(error) {

@@ -27,10 +27,11 @@ export const startGame = async (roomCode: string, players: string[]) => {
 
   await redis.set(
     `game:${roomCode}`,
-    JSON.stringify(gameState),
-    "EX",
-    Game_TTL,
+    JSON.stringify(gameState)
   );
+
+  const verify = await redis.get(`game:${roomCode}`);
+  console.log(`[REDIS VERIFY] Did game save?`, verify ? "YES ✅" : "NO ❌");
 
   return gameState;
 };

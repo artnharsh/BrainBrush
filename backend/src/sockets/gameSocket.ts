@@ -2,14 +2,14 @@ import { Server } from "socket.io";
 import { AuthenticatedSocket } from "../types/socketTypes";
 import { processGuess } from "../services/scoringService";
 import { updateWord } from "../services/gameService";
-import test from "node:test";
-import { text } from "node:stream/consumers";
 import { startRoundTimer } from "../utils/timer";
-import { start } from "node:repl";
+import { activeDrawers } from "./drawingSocket";
+import { nextTurn } from "../services/gameService";
 
 export const gameSocket = async (io: Server, socket: AuthenticatedSocket) => {
     socket.on("choose_word", async (data: { roomCode: string; word: string }) => {
         try {
+            console.log(`[CHOOSE WORD] Received Payload:`, data);
             const userId = socket.user?.id;
             if (!userId) return;
 
@@ -30,10 +30,12 @@ export const gameSocket = async (io: Server, socket: AuthenticatedSocket) => {
     });
 
     // player submits the guess
-    socket.on("guess_word", async (data: { roomCode: string; guess: string }) => {
+    socket.on("guess_word", async (data: { roomCode: string; guess: string; username: string }) => {
         try {
             const userId = socket.user?.id;
             if (!userId) return;
+
+            const senderName = data.username || userId;
 
             const result = await processGuess(data.roomCode, userId, data.guess);
 
@@ -42,7 +44,7 @@ export const gameSocket = async (io: Server, socket: AuthenticatedSocket) => {
 
                 io.to(data.roomCode).emit("chat_message", {
                     sender: "System",
-                    text: `${userId} guessed the word`,
+                    text: `${senderName} guessed the word!`,
                     type: "sussess"
                 });
 
@@ -51,7 +53,7 @@ export const gameSocket = async (io: Server, socket: AuthenticatedSocket) => {
                 }
             } else {
                 io.to(data.roomCode).emit("chat_message", {
-                    sender: userId,
+                    sender: senderName,
                     text: data.guess,
                     type: "normal"
                 });
