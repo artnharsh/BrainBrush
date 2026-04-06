@@ -8,9 +8,14 @@ export const logout = (req: Request, res: Response) => {
     });
 };
 
-export const generateToken = (userId: string) => {
+export const generateToken = (user: any) => {
     return jwt.sign(
-        { id: userId },
+        { 
+            id: user._id || user.id, 
+            username: user.name, // 🚨 Map Google's 'name' to 'username' so the frontend is happy!
+            name: user.name,
+            avatar: user.avatar 
+        },
         JWT_SECRET,
         { expiresIn: "7d" }
     );

@@ -15,7 +15,7 @@ router.get(
   passport.authenticate("google", { session: false }),
   (req, res) => {
     const user = req.user as any;
-    const token = generateToken(user._id.toString());
+    const token = generateToken(user);
     
     // THIS is the only line that is different from your original working code!
     // Instead of res.json, we throw the token into the URL and send them to React.

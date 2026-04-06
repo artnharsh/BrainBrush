@@ -1,4 +1,3 @@
-// src/hooks/useSocket.ts
 import { useEffect, useState } from "react";
 import { socket, connectSocket, disconnectSocket } from "../socketClient";
 import { useGameStore } from "../store/useGameStore";
@@ -20,8 +19,6 @@ export const useSocket = () => {
 
   // ========================================================
   // EFFECT 1: STRICTLY FOR CONNECTING / DISCONNECTING
-  // This only runs when authentication changes. It will NOT 
-  // disconnect you just because someone scored a point.
   // ========================================================
   useEffect(() => {
     if (!isAuthenticated) {
@@ -31,10 +28,7 @@ export const useSocket = () => {
 
     connectSocket();
 
-    const onConnect = () => {
-      setIsConnected(true);
-      const currentUser = useGameStore.getState().user;
-    };
+    const onConnect = () => setIsConnected(true);
     const onDisconnect = () => {
       setIsConnected(false);
       resetRoom(); // Only wipe state on a REAL disconnect
@@ -46,14 +40,23 @@ export const useSocket = () => {
     return () => {
       socket.off("connect", onConnect);
       socket.off("disconnect", onDisconnect);
-      // Notice we are NOT calling disconnectSocket() here!
     };
   }, [isAuthenticated, resetRoom]);
 
+
+  // ========================================================
+  // EFFECT 2: REGISTER NAME WHEN CONNECTED
+  // ========================================================
   useEffect(() => {
     if (isConnected && user) {
-      // By using 'as any', we can grab the Google Auth name without TS yelling at us!
-      const realName = user.username || (user as any).name || (user as any).email?.split('@')[0] || `Guest-${user.id.slice(-4)}`;
+      // 🚨 LOOK AT YOUR BROWSER CONSOLE FOR THIS MESSAGE!
+      console.log("🕵️ X-RAY -> My User Object:", user);
+
+      const realName = 
+        user.username || 
+        (user as any).name || 
+        (user as any).email?.split('@')[0] || 
+        `Guest-${user.id.slice(-4)}`;
       
       socket.emit("register_name", { id: user.id, username: realName });
     }
@@ -61,9 +64,7 @@ export const useSocket = () => {
 
 
   // ========================================================
-  // EFFECT 2: STRICTLY FOR GAME LISTENERS
-  // This can re-run safely whenever Zustand state changes 
-  // because it only removes listeners, not the actual socket.
+  // EFFECT 3: STRICTLY FOR GAME LISTENERS
   // ========================================================
   useEffect(() => {
     if (!isAuthenticated || !isConnected) return;
@@ -150,7 +151,6 @@ export const useSocket = () => {
       socket.off("error", onError);
       socket.off("correct_guessers_update", onCorrectGuessersUpdate);
       socket.off("name_dict_update", onNameDictUpdate);
-      // NO disconnectSocket() HERE!
     };
   }, [
     isAuthenticated, isConnected, user, setRoom, updatePlayers, 
