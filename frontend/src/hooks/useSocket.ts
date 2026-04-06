@@ -31,7 +31,10 @@ export const useSocket = () => {
 
     connectSocket();
 
-    const onConnect = () => setIsConnected(true);
+    const onConnect = () => {
+      setIsConnected(true);
+      const currentUser = useGameStore.getState().user;
+    };
     const onDisconnect = () => {
       setIsConnected(false);
       resetRoom(); // Only wipe state on a REAL disconnect
@@ -46,6 +49,15 @@ export const useSocket = () => {
       // Notice we are NOT calling disconnectSocket() here!
     };
   }, [isAuthenticated, resetRoom]);
+
+  useEffect(() => {
+    if (isConnected && user) {
+      // By using 'as any', we can grab the Google Auth name without TS yelling at us!
+      const realName = user.username || (user as any).name || (user as any).email?.split('@')[0] || `Guest-${user.id.slice(-4)}`;
+      
+      socket.emit("register_name", { id: user.id, username: realName });
+    }
+  }, [isConnected, user]);
 
 
   // ========================================================
@@ -94,13 +106,20 @@ export const useSocket = () => {
 
     const onGameOver = (data: any) => {
       console.log("🛑 Game Over:", data);
-      if (data.reason) alert(`Game Ended: ${data.reason}`);
-      resetRoom();
+      useGameStore.getState().syncGameState({ gameStatus: 'podium' });
     };
 
     const onError = (message: string) => {
       console.error("🔴 Backend Error:", message);
       alert(`Error: ${message}`);
+    };
+
+    const onNameDictUpdate = (dict: Record<string, string>) => {
+      useGameStore.getState().syncGameState({ playerNames: dict });
+    };
+
+    const onCorrectGuessersUpdate = (guessers: string[]) => {
+      useGameStore.getState().syncGameState({ correctGuessers: guessers });
     };
 
     // Attach Listeners
@@ -114,6 +133,8 @@ export const useSocket = () => {
     socket.on("timer_update", onTimerUpdate);
     socket.on("game_over", onGameOver);
     socket.on("error", onError);
+    socket.on("correct_guessers_update", onCorrectGuessersUpdate);
+    socket.on("name_dict_update", onNameDictUpdate);
 
     // Clean up Listeners
     return () => {
@@ -127,6 +148,8 @@ export const useSocket = () => {
       socket.off("timer_update", onTimerUpdate);
       socket.off("game_over", onGameOver);
       socket.off("error", onError);
+      socket.off("correct_guessers_update", onCorrectGuessersUpdate);
+      socket.off("name_dict_update", onNameDictUpdate);
       // NO disconnectSocket() HERE!
     };
   }, [

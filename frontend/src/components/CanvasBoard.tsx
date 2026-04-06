@@ -7,8 +7,8 @@ import WordSelectionModal from "./WordSelectionModal";
 import { socket } from "../socketClient";
 
 // --- PURE PIXEL MATH FOR ERASER ---
-const dist2 = (v: {x: number, y: number}, w: {x: number, y: number}) => (v.x - w.x) ** 2 + (v.y - w.y) ** 2;
-const distToSegmentSquared = (p: {x: number, y: number}, v: {x: number, y: number}, w: {x: number, y: number}) => {
+const dist2 = (v: { x: number, y: number }, w: { x: number, y: number }) => (v.x - w.x) ** 2 + (v.y - w.y) ** 2;
+const distToSegmentSquared = (p: { x: number, y: number }, v: { x: number, y: number }, w: { x: number, y: number }) => {
   let l2 = dist2(v, w);
   if (l2 === 0) return dist2(p, v);
   let t = ((p.x - v.x) * (w.x - v.x) + (p.y - v.y) * (w.y - v.y)) / l2;
@@ -33,9 +33,9 @@ export default function CanvasBoard() {
   const roomCode = useGameStore((state) => state.roomCode);
   const user = useGameStore((state) => state.user);
   const currentDrawer = useGameStore((state) => state.currentDrawer);
-  
+
   const isMyTurn = user?.id === currentDrawer;
-  
+
   // 🚨 STABILITY FIX: Keep track of turn without triggering re-renders in socket listeners
   const isMyTurnRef = useRef(isMyTurn);
   useEffect(() => { isMyTurnRef.current = isMyTurn; }, [isMyTurn]);
@@ -48,7 +48,7 @@ export default function CanvasBoard() {
 
     // Reset transform matrix to ignore DPI scaling temporarily, wipe it, then restore!
     ctx.save();
-    ctx.setTransform(1, 0, 0, 1, 0, 0); 
+    ctx.setTransform(1, 0, 0, 1, 0, 0);
     ctx.clearRect(0, 0, canvas.width, canvas.height);
     ctx.fillStyle = "white";
     ctx.fillRect(0, 0, canvas.width, canvas.height);
@@ -126,8 +126,8 @@ export default function CanvasBoard() {
     socket.on("send_canvas_snapshot", onSendSnapshot);
     socket.on("receive_canvas_snapshot", onReceiveSnapshot);
 
-    return () => { 
-      socket.off("draw_line", onDrawLine); 
+    return () => {
+      socket.off("draw_line", onDrawLine);
       socket.off("erase_stroke", onEraseStroke);
       socket.off("clear_canvas", onClearCanvas);
       socket.off("send_canvas_snapshot", onSendSnapshot);
@@ -139,7 +139,9 @@ export default function CanvasBoard() {
     if (!isMyTurn && roomCode) socket.emit("request_canvas_sync", roomCode);
   }, [isMyTurn, roomCode]);
 
-  const emitDrawLine = useMemo(() => throttle((data: any) => socket.emit("draw_line", data), 30), []);
+  const emitDrawLine = (data: any) => {
+    socket.emit("draw_line", data);
+  };
 
   // --- DRAWING LOGIC ---
   const getCoordinates = (e: React.MouseEvent | React.TouchEvent) => {
@@ -199,7 +201,7 @@ export default function CanvasBoard() {
       strokeId: currentStrokeId.current,
       x0: currentPos.current.x / w, y0: currentPos.current.y / h,
       x1: newPos.x / w, y1: newPos.y / h,
-      color: brushColor, width: brushSize, 
+      color: brushColor, width: brushSize,
     };
 
     segmentsRef.current.push(segment);
@@ -220,7 +222,7 @@ export default function CanvasBoard() {
   return (
     <div className="relative w-full h-full flex flex-col bg-white border-4 border-black rounded-xl shadow-[8px_8px_0px_rgba(0,0,0,1)] overflow-hidden">
       <WordSelectionModal />
-      
+
       {isMyTurn && (
         <div className="bg-gray-100 border-b-4 border-black p-2 flex flex-wrap gap-4 items-center justify-between z-10">
           <div className="flex gap-2">
@@ -232,7 +234,7 @@ export default function CanvasBoard() {
                 style={{ backgroundColor: c }}
               />
             ))}
-            <button 
+            <button
               onClick={() => setIsEraser(true)}
               className={`w-8 h-8 rounded-full border-2 flex items-center justify-center bg-white ${isEraser ? 'border-black scale-110 shadow-md ring-2 ring-red-400' : 'border-gray-300'}`}
               title="Erase Entire Line"
@@ -247,7 +249,7 @@ export default function CanvasBoard() {
             <button onClick={() => setBrushSize(12)} className={`p-1 rounded font-bold ${brushSize === 12 ? 'bg-gray-300' : ''}`}>Thick</button>
           </div>
 
-          <button 
+          <button
             onClick={handleClearCanvas}
             className="bg-red-500 text-white px-3 py-1 rounded font-bold border-2 border-black hover:bg-red-600"
           >

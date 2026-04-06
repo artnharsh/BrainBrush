@@ -24,7 +24,7 @@ interface GameState {
   hostId: string | null;
 
   // Active Game State
-  gameStatus: 'lobby' | 'playing' | 'finished';
+  gameStatus: 'lobby' | 'playing' | 'finished' | 'podium';
   currentDrawer: string | null;
   word: string | null;
   wordChoices: string[];
@@ -33,6 +33,7 @@ interface GameState {
   messages: ChatMessage[];
   currentRound: number;
   totalRounds: number;
+  playerNames: Record<string, string>;
 
   // --- ACTIONS ---
   setAuth: (user: User, token: string) => void;
@@ -45,6 +46,7 @@ interface GameState {
   updateTimer: (time: number) => void;
   addMessage: (msg: ChatMessage) => void;
   updateScores: (scores: Record<string, number>) => void;
+  correctGuessers: string[];
   
   syncGameState: (fullState: Partial<GameState>) => void;
   resetRoom: () => void;
@@ -55,6 +57,7 @@ export const useGameStore = create<GameState>((set) => ({
   user: null,
   isAuthenticated: false,
   roomCode: null,
+  playerNames: {},
   players: [],
   hostId: null,
   gameStatus: 'lobby',
@@ -66,6 +69,7 @@ export const useGameStore = create<GameState>((set) => ({
   messages: [],
   currentRound: 0,
   totalRounds: 3,
+  correctGuessers: [],
 
   setAuth: (user, token) => {
     localStorage.setItem('token', token);
@@ -104,7 +108,8 @@ export const useGameStore = create<GameState>((set) => ({
   syncGameState: (fullState) => set((state) => ({ 
     ...state, 
     ...fullState,
-    currentDrawer: (fullState as any).drawer || fullState.currentDrawer || state.currentDrawer
+    currentDrawer: (fullState as any).drawer || fullState.currentDrawer || state.currentDrawer,
+    correctGuessers: (fullState as any).correctGuessers || state.correctGuessers
   })),
 
   resetRoom: () => set({ 

@@ -24,11 +24,7 @@ export default function ChatBox() {
     if (!guess.trim() || !roomCode || isMyTurn) return;
 
     // 🚨 Pass the username so the backend doesn't have to guess!
-    socket.emit("guess_word", { 
-      roomCode, 
-      guess, 
-      username: user?.username || "Guest" 
-    });
+    socket.emit("guess_word", { roomCode, guess });
     
     setGuess("");
   };

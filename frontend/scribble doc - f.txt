@@ -259,3 +259,13 @@ The Real-World Application: "When architecting the Lobby-to-Game transition, I e
 -------------------------------------------------------------------------------------------------------------------------
 -------------------------------------------------------------------------------------------------------------------------
 
+The Canvas (Drawing): When you drag your mouse, you aren't just changing pixel colors anymore. You are generating a unique ID for that stroke and saving the exact coordinates, color, and thickness into a hidden memory array (segmentsRef). The app then instantly reads that list and draws it on the screen.
+
+The Eraser (The Sniper): When you click the eraser, it doesn't just paint white over the screen. Instead, it takes your mouse coordinates, uses geometry to check your hidden array, and asks: "Did this click touch any of the saved lines?" If it finds a hit, it deletes that specific line's ID from the array and instantly redraws the entire board. Because the line is gone from memory, it completely vanishes from the screen.
+
+Clear Canvas (The Nuke): This is the easiest one. When someone clicks "Clear" or the turn changes, the app simply empties the memory array (segmentsRef.current = []) and runs the redraw function. Since the memory is totally empty, the canvas becomes completely blank.
+
+-------------------------------------------------------------------------------------------------------------------------
+-------------------------------------------------------------------------------------------------------------------------
+
+

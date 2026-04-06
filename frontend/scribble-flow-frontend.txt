@@ -207,7 +207,33 @@ Goal:
 stable + efficient realtime system
 
 ➕ Added from previous plan:
+rorBoundary
 
+Features:
+
+guess system
+
+score update
+
+timer UI
+
+turn UI
+
+Add:
+
+Reconnect handling
+
+auto rejoin room
+
+restore state
+
+UX polish
+
+loading states
+
+error toasts
+
+responsive UI
 The Snapshot Trick: Wire up canvas.toDataURL() for the Drawer to encode the image, and new Image() / ctx.drawImage() for the Reconnecting User to decode and paste it.
 
 🟢 Day 8 — Game System Integration + Polish
@@ -248,6 +274,105 @@ loading states
 error toasts
 
 responsive UI
+
+🟢 Day 9: Core Game Logic & The ScoreBoard (Backend + UI)
+Goal: Fix the identity bug, calculate real math, and make the game feel competitive.
+
+1. The "Ugly ID" Bug Fix (Frontend & Backend)
+
+The Issue: Your backend is currently broadcasting socket.user.id (like 69ca196e...) instead of the user's chosen display name.
+
+The Fix: * Update your JWT token or Redis player cache to store the username alongside the id.
+
+Update gameSocket.ts so that when broadcasting chat messages, "turn updated", or guessing events, it extracts and uses user.username instead of user.id.
+
+2. Proper Scoring Math (Backend - scoringService.ts)
+
+The Feature: Reward fast guessers and good drawers.
+
+The Implementation:
+
+When someone guesses correctly, check the activeTimers to see how much time is left.
+
+Guesser Math: Points = Math.floor((timeLeft / 60) * 500).
+
+Drawer Math: Add 50 bonus points to the drawer for every correct guesser.
+
+Update Redis and emit the new score_update event.
+
+3. The "Everyone Guessed" Fast-Forward (Backend - gameSocket.ts)
+
+The Feature: Don't make people wait 45 seconds if everyone already figured out the drawing.
+
+The Implementation:
+
+Track a correctGuessers array in your Redis Game State.
+
+Inside your guess_word listener, check if correctGuessers.length === players.length - 1 (everyone except the drawer).
+
+If true, immediately call clearRoundTimer(), broadcast an "Everyone Guessed!" message, and trigger nextTurn().
+
+4. The ScoreBoard Component (Frontend - ScoreBoard.tsx)
+
+The Feature: A visual leaderboard on the side of the screen.
+
+The Implementation:
+
+Create a sidebar next to the Chat/Canvas.
+
+Map through store.players and display their current score from store.scores.
+
+Add a visual indicator (like a little 🟢 or a pencil ✏️ icon) to show who is currently drawing, and who has already guessed the word correctly.
+
+🟢 Day 10: The Ultimate Polish & Launch (Frontend)
+Goal: Smooth out all the transitions, handle errors gracefully, and add the final "Game Over" celebration.
+
+1. The Round Transition / Intermission (Frontend - GamePage.tsx)
+
+The Feature: Give players a 5-second breather between rounds.
+
+The Implementation:
+
+When the timer hits 0 or everyone guesses, the backend emits an intermission event (or turn_ended event) with the actual word.
+
+Frontend shows a cinematic overlay: "Time's up! The word was: 🍎 APPLE".
+
+After 5 seconds, the backend triggers next_turn to actually change the drawer.
+
+2. The Final Podium Screen (Frontend - Podium.tsx)
+
+The Feature: A satisfying end to the game.
+
+The Implementation:
+
+When the backend emits game_over, update a gameStatus state in Zustand to 'podium' instead of instantly resetting the room.
+
+Render a Podium component showing 1st, 2nd, and 3rd place with gold/silver/bronze styling.
+
+Add a "Return to Lobby" button that finally triggers the resetRoom() function.
+
+3. Error Toasts & UX Polish (Frontend)
+
+The Feature: Get rid of the ugly browser alert() popups.
+
+The Implementation:
+
+Install npm i react-hot-toast (or react-toastify).
+
+Wrap your App in a <Toaster />.
+
+Replace every alert() in useSocket.ts and your API calls with toast.error("Game Ended") or toast.success("Joined Room!").
+
+4. The ErrorBoundary (Frontend)
+
+The Feature: Stop the dreaded "White Screen of Death" if a single component fails.
+
+The Implementation:
+
+Create a simple React class component ErrorBoundary.
+
+Wrap your main <App /> inside it. If anything crashes, it shows a friendly "Oops! Something snapped. [Refresh Game]" button.
+
 
 Goal:
 Complete, playable, production-ready game.

@@ -1,20 +1,25 @@
-// backend/src/utils/timer.ts
 import { Server } from "socket.io";
 import { nextTurn, endGame } from "../services/gameService";
+import { guessedCorrectlyCache } from "../services/scoringService"; // <-- Put this at the top
 
 // 🚨 IMPORT THE BOUNCER CACHE
 import { activeDrawers } from "../sockets/drawingSocket";
 
 const activeTimers = new Map<string, NodeJS.Timeout>();
+const timeRemaining = new Map<string, number>(); 
+
+export const getTimeLeft = (roomCode: string) => timeRemaining.get(roomCode) || 0;
 
 export const startRoundTimer = async(io: Server, roomCode: string, duration: number = 60) => {
     
     clearRoundTimer(roomCode);
 
     let timeLeft = duration;
+    timeRemaining.set(roomCode, timeLeft); // 🚨 1. Save the starting time
 
     const timerId = setInterval(async () => {
         timeLeft -= 1;
+        timeRemaining.set(roomCode, timeLeft); // 🚨 2. Update the memory every single second!
 
         io.to(roomCode).emit("timer_update", timeLeft);
 
@@ -54,5 +59,7 @@ export const clearRoundTimer = (roomCode: string) => {
     if(timerId) {
         clearInterval(timerId);
         activeTimers.delete(roomCode);
+        timeRemaining.delete(roomCode); // 🚨 3. Delete the memory when the round ends
+        guessedCorrectlyCache.delete(roomCode); // 🚨 4. Clear the guess cache for this room
     }
 };

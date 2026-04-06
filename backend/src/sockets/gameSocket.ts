@@ -1,15 +1,23 @@
+// backend/src/sockets/gameSocket.ts
 import { Server } from "socket.io";
 import { AuthenticatedSocket } from "../types/socketTypes";
 import { processGuess } from "../services/scoringService";
-import { updateWord } from "../services/gameService";
-import { startRoundTimer } from "../utils/timer";
+import { updateWord, nextTurn } from "../services/gameService";
+import { startRoundTimer, clearRoundTimer } from "../utils/timer";
 import { activeDrawers } from "./drawingSocket";
-import { nextTurn } from "../services/gameService";
+
+// 🚨 IN-MEMORY CACHE FOR TEMPORARY NAMES
+export const temporaryNames = new Map<string, string>();
 
 export const gameSocket = async (io: Server, socket: AuthenticatedSocket) => {
+    
+    // 🚨 Save their name when they connect!
+    socket.on("register_name", (data: { id: string, username: string }) => {
+        temporaryNames.set(data.id, data.username);
+    });
+
     socket.on("choose_word", async (data: { roomCode: string; word: string }) => {
         try {
-            console.log(`[CHOOSE WORD] Received Payload:`, data);
             const userId = socket.user?.id;
             if (!userId) return;
 
@@ -29,27 +37,60 @@ export const gameSocket = async (io: Server, socket: AuthenticatedSocket) => {
         }
     });
 
+    socket.on("register_name", (data: { id: string, username: string }) => {
+        // Fallback to "Guest" if their username is literally missing
+        const validName = data.username && data.username !== "Player" ? data.username : `Guest-${data.id.slice(-4)}`;
+        temporaryNames.set(data.id, validName);
+        
+        // Convert the Map to a normal Object so we can send it over WebSockets
+        io.emit("name_dict_update", Object.fromEntries(temporaryNames));
+
+    });
+
     // player submits the guess
-    socket.on("guess_word", async (data: { roomCode: string; guess: string; username: string }) => {
+    socket.on("guess_word", async (data: { roomCode: string; guess: string; username?: string }) => {
         try {
             const userId = socket.user?.id;
             if (!userId) return;
 
-            const senderName = data.username || userId;
+            // Keep cache updated, fallback to ID if no name provided
+            const senderName = temporaryNames.get(userId) || `Guest-${userId.slice(-4)}`;
 
             const result = await processGuess(data.roomCode, userId, data.guess);
 
-            if (result.isCorrect) {
-                // hides the actual guess and displaye message
+            if (result.alreadyGuessed) return; // Prevent spam
 
+            if (result.isCorrect) {
+                // hides the actual guess and display message
                 io.to(data.roomCode).emit("chat_message", {
                     sender: "System",
                     text: `${senderName} guessed the word!`,
-                    type: "sussess"
+                    type: "success" // Fixed typo here
                 });
 
                 if (result.game) {
                     io.to(data.roomCode).emit("score_update", result.game.scores);
+                    io.to(data.roomCode).emit("correct_guessers_update", result.correctGuessersArray);
+                }
+
+                // 🚨 FAST FORWARD: Skip the rest of the timer!
+                if (result.allGuessed) {
+                    io.to(data.roomCode).emit("chat_message", {
+                        sender: "System",
+                        text: `Everyone guessed the word!`,
+                        type: "success"
+                    });
+                    
+                    clearRoundTimer(data.roomCode); // Kill the clock!
+                    
+                    const { game, isGameOver } = await nextTurn(data.roomCode);
+                    if (isGameOver) {
+                        activeDrawers.delete(data.roomCode);
+                        io.to(data.roomCode).emit("game_over", game);
+                    } else {
+                        activeDrawers.set(data.roomCode, game.drawer);
+                        io.to(data.roomCode).emit("turn_updated", game);
+                    }
                 }
             } else {
                 io.to(data.roomCode).emit("chat_message", {
@@ -65,7 +106,6 @@ export const gameSocket = async (io: Server, socket: AuthenticatedSocket) => {
 
     // 1. New player asks for the current picture
     socket.on("request_canvas_sync", (roomCode: string) => {
-        // We just broadcast this to the room. (Only the drawer will respond to it)
         socket.to(roomCode).emit("send_canvas_snapshot", { targetSocketId: socket.id });
     });
 
