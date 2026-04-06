@@ -51,6 +51,12 @@ export default function LobbyPage() {
   const handleCreateRoom = () => {
     if (!tempName.trim()) return alert("Please enter a display name!");
     setIsLoading(true);
+    
+    // 🚨 NEW: Tell the backend Phonebook about our custom typed name!
+    if (user) {
+      socket.emit("register_name", { id: user.id, username: tempName });
+    }
+    
     socket.emit("create_room"); 
   };
 
@@ -58,8 +64,13 @@ export default function LobbyPage() {
     e.preventDefault();
     if (!joinCode.trim() || !tempName.trim()) return alert("Please enter a code and name!");
     setIsLoading(true);
+
+    // 🚨 NEW: Tell the backend Phonebook about our custom typed name!
+    if (user) {
+      socket.emit("register_name", { id: user.id, username: tempName });
+    }
+
     socket.emit("join_room", joinCode.toUpperCase());
-    // Optimistic UI Update
     useGameStore.getState().setRoom(joinCode.toUpperCase(), [], "");
   };
 
