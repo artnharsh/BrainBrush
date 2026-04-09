@@ -5,7 +5,7 @@ import { getRandomWords } from "../utils/wordGenerator"
 
 const Game_TTL = 3600; // 1 hour in seconds
 
-export const startGame = async (roomCode: string, players: string[]) => {
+export const startGame = async (roomCode: string, players: string[]): Promise<GameState> => {
   if (!players || players.length === 0) throw new Error("Not enough players");
 
   const gameState: GameState = {
@@ -36,7 +36,7 @@ export const startGame = async (roomCode: string, players: string[]) => {
   return gameState;
 };
 
-export const getGameState = async (roomCode: string) => {
+export const getGameState = async (roomCode: string): Promise<GameState> => {
   const gameStr = await redis.get(`game:${roomCode}`);
   if (!gameStr) throw new Error("Game not found");
 
@@ -44,7 +44,7 @@ export const getGameState = async (roomCode: string) => {
 };
 
 // You might not need this anymore since nextTurn handles it, but keeping it for manual overrides!
-export const updateDrawer = async (roomCode: string, drawer: string) => {
+export const updateDrawer = async (roomCode: string, drawer: string): Promise<GameState> => {
   const gameStr = await redis.get(`game:${roomCode}`);
   if (!gameStr) throw new Error("Game not found");
 
@@ -55,7 +55,7 @@ export const updateDrawer = async (roomCode: string, drawer: string) => {
   return game;
 };
 
-export const updateWord = async (roomCode: string, word: string) => {
+export const updateWord = async (roomCode: string, word: string): Promise<GameState> => {
   const gameStr = await redis.get(`game:${roomCode}`);
   if (!gameStr) throw new Error("Game not found");
 
@@ -70,7 +70,7 @@ export const updateScores = async (
   roomCode: string,
   userId: string,
   score: number,
-) => {
+): Promise<GameState> => {
   const gameStr = await redis.get(`game:${roomCode}`);
   if (!gameStr) throw new Error("Game not found");
 
@@ -87,7 +87,7 @@ export const updateScores = async (
 };
 
 // Replaced `nextRound` with `nextTurn` to handle the new logic natively
-export const nextTurn = async (roomCode: string) => {
+export const nextTurn = async (roomCode: string): Promise<{ game: GameState; isGameOver: boolean }> => {
   const gameStr = await redis.get(`game:${roomCode}`);
   if (!gameStr) throw new Error("Game not found");
 
@@ -118,7 +118,7 @@ export const nextTurn = async (roomCode: string) => {
   return { game, isGameOver };
 };
 
-export const handlePlayerLeave = async(roomCode: string, userId: string) => {
+export const handlePlayerLeave = async(roomCode: string, userId: string): Promise<{ shouldEndGame: boolean; wasDrawer: boolean; game?: GameState }> => {
   const gameStr = await redis.get(`game:${roomCode}`);
 
   // if game isn't started or already over then do nothing 
@@ -154,7 +154,7 @@ export const handlePlayerLeave = async(roomCode: string, userId: string) => {
   return { shouldEndGame: false, wasDrawer, game};
 };
 
-export const endGame = async(roomCode: string, finalGameState: GameState) => {
+export const endGame = async(roomCode: string, finalGameState: GameState): Promise<{ winner: string; maxScore: number }> => {
   let winner = "";
   let maxScore = -1;
   const formattedScores = [];

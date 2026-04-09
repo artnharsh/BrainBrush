@@ -36,11 +36,11 @@ export default function CanvasBoard() {
 
   const isMyTurn = user?.id === currentDrawer;
 
-  // 🚨 STABILITY FIX: Keep track of turn without triggering re-renders in socket listeners
+  // Stability fix: Keep track of turn without triggering re-renders in socket listeners
   const isMyTurnRef = useRef(isMyTurn);
   useEffect(() => { isMyTurnRef.current = isMyTurn; }, [isMyTurn]);
 
-  // 🚨 THE NUKE: Guarantees the canvas is wiped completely clean
+  // THE NUKE: Guarantees the canvas is wiped completely clean
   const redrawCanvas = () => {
     const canvas = canvasRef.current;
     const ctx = canvas?.getContext("2d");
@@ -65,7 +65,7 @@ export default function CanvasBoard() {
     });
   };
 
-  // 🚨 FIX: Auto-wipe memory when the drawer changes
+  // FIX: Auto-wipe memory when the drawer changes
   useEffect(() => {
     segmentsRef.current = [];
     redrawCanvas();
@@ -95,8 +95,8 @@ export default function CanvasBoard() {
 
   // --- SOCKET LISTENERS (LOCKED IN) ---
   useEffect(() => {
-    const onDrawLine = (data: any) => {
-      segmentsRef.current.push(data);
+    const onDrawLine = (segment: any) => {
+      segmentsRef.current.push(segment);
       redrawCanvas();
     };
 
@@ -139,9 +139,13 @@ export default function CanvasBoard() {
     if (!isMyTurn && roomCode) socket.emit("request_canvas_sync", roomCode);
   }, [isMyTurn, roomCode]);
 
-  const emitDrawLine = (data: any) => {
-    socket.emit("draw_line", data);
-  };
+  // THROTTLED emit - fires max every 16ms (60fps)
+  const emitDrawLine = useMemo(
+    () => throttle((segment: any) => {
+      socket.emit("draw_line", { roomCode, segment });
+    }, 16),
+    [roomCode]
+  );
 
   // --- DRAWING LOGIC ---
   const getCoordinates = (e: React.MouseEvent | React.TouchEvent) => {
@@ -169,7 +173,7 @@ export default function CanvasBoard() {
     const w = canvas.getBoundingClientRect().width;
     const h = canvas.getBoundingClientRect().height;
 
-    // 🚨 FIX: EXACT PIXEL MATH FOR ERASER
+    // FIX: EXACT PIXEL MATH FOR ERASER
     if (isEraser) {
       const hitRadiusSq = 20 * 20; // 20px physical radius
       let hitStrokeId: string | null = null;
@@ -197,7 +201,6 @@ export default function CanvasBoard() {
 
     // NORMAL DRAWING
     const segment = {
-      roomCode,
       strokeId: currentStrokeId.current,
       x0: currentPos.current.x / w, y0: currentPos.current.y / h,
       x1: newPos.x / w, y1: newPos.y / h,

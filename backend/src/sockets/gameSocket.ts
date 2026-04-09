@@ -1,27 +1,33 @@
 // backend/src/sockets/gameSocket.ts
 import { Server } from "socket.io";
-import { AuthenticatedSocket } from "../types/socketTypes";
+import { AuthenticatedSocket, RegisterNamePayload, ChooseWordPayload, GuessWordPayload, CanvasSnapshotPayload, SendCanvasSnapshotPayload } from "../types/socketTypes";
 import { processGuess } from "../services/scoringService";
 import { updateWord, nextTurn } from "../services/gameService";
 import { startRoundTimer, clearRoundTimer } from "../utils/timer";
 import { activeDrawers } from "./drawingSocket";
 
-// 🚨 IN-MEMORY CACHE FOR TEMPORARY NAMES
+// IN-MEMORY CACHE FOR TEMPORARY NAMES
 export const temporaryNames = new Map<string, string>();
 
-export const gameSocket = async (io: Server, socket: AuthenticatedSocket) => {
-    
-    // 🚨 Save their name when they connect!
-    socket.on("register_name", (data: { id: string, username: string }) => {
-        temporaryNames.set(data.id, data.username);
+export const gameSocket = (io: Server, socket: AuthenticatedSocket): void => {
+
+    // Register/update player name when they connect
+    socket.on("register_name", (data: RegisterNamePayload): void => {
+        // Fallback to "Guest" if username is missing or default
+        const validName = data.username && data.username !== "Player" ? data.username : `Guest-${data.id.slice(-4)}`;
+        temporaryNames.set(data.id, validName);
+
+        // Convert the Map to a normal Object so we can send it over WebSockets
+        io.emit("name_dict_update", Object.fromEntries(temporaryNames));
     });
 
-    socket.on("choose_word", async (data: { roomCode: string; word: string }) => {
+    // Drawer selects a word
+    socket.on("choose_word", async (data: ChooseWordPayload): Promise<void> => {
         try {
             const userId = socket.user?.id;
             if (!userId) return;
 
-            // save the actual word in redis using your existing gameservice
+            // save the actual word in redis using gameService
             await updateWord(data.roomCode, data.word);
 
             // convert the word to blank to show guessers
@@ -33,22 +39,13 @@ export const gameSocket = async (io: Server, socket: AuthenticatedSocket) => {
             startRoundTimer(io, data.roomCode, 60);
 
         } catch (error) {
-            console.error("Error choosing word: ", error);
+            const errorMessage = error instanceof Error ? error.message : "Unknown error";
+            socket.emit("error", { message: `Error choosing word: ${errorMessage}` });
         }
     });
 
-    socket.on("register_name", (data: { id: string, username: string }) => {
-        // Fallback to "Guest" if their username is literally missing
-        const validName = data.username && data.username !== "Player" ? data.username : `Guest-${data.id.slice(-4)}`;
-        temporaryNames.set(data.id, validName);
-        
-        // Convert the Map to a normal Object so we can send it over WebSockets
-        io.emit("name_dict_update", Object.fromEntries(temporaryNames));
-
-    });
-
-    // player submits the guess
-    socket.on("guess_word", async (data: { roomCode: string; guess: string; username?: string }) => {
+    // Player submits a guess
+    socket.on("guess_word", async (data: GuessWordPayload): Promise<void> => {
         try {
             const userId = socket.user?.id;
             if (!userId) return;
@@ -65,28 +62,28 @@ export const gameSocket = async (io: Server, socket: AuthenticatedSocket) => {
                 io.to(data.roomCode).emit("chat_message", {
                     sender: "System",
                     text: `${senderName} guessed the word!`,
-                    type: "success" // Fixed typo here
+                    type: "success"
                 });
 
                 if (result.game) {
                     io.to(data.roomCode).emit("score_update", result.game.scores);
-                    io.to(data.roomCode).emit("correct_guessers_update", result.correctGuessersArray);
+                    io.to(data.roomCode).emit("correct_guessers_update", { guessers: result.correctGuessersArray });
                 }
 
-                // 🚨 FAST FORWARD: Skip the rest of the timer!
+                // FAST FORWARD: Skip the rest of the timer if all guessed!
                 if (result.allGuessed) {
                     io.to(data.roomCode).emit("chat_message", {
                         sender: "System",
-                        text: `Everyone guessed the word!`,
+                        text: "Everyone guessed the word!",
                         type: "success"
                     });
-                    
-                    clearRoundTimer(data.roomCode); // Kill the clock!
-                    
+
+                    clearRoundTimer(data.roomCode);
+
                     const { game, isGameOver } = await nextTurn(data.roomCode);
                     if (isGameOver) {
                         activeDrawers.delete(data.roomCode);
-                        io.to(data.roomCode).emit("game_over", game);
+                        io.to(data.roomCode).emit("game_over", { reason: "Game finished!" });
                     } else {
                         activeDrawers.set(data.roomCode, game.drawer);
                         io.to(data.roomCode).emit("turn_updated", game);
@@ -100,17 +97,18 @@ export const gameSocket = async (io: Server, socket: AuthenticatedSocket) => {
                 });
             }
         } catch (error) {
-            console.error("Error processing guess: ", error);
+            const errorMessage = error instanceof Error ? error.message : "Unknown error";
+            socket.emit("error", { message: `Error processing guess: ${errorMessage}` });
         }
     });
 
-    // 1. New player asks for the current picture
-    socket.on("request_canvas_sync", (roomCode: string) => {
-        socket.to(roomCode).emit("send_canvas_snapshot", { targetSocketId: socket.id });
+    // New player asks for the current canvas state
+    socket.on("request_canvas_sync", (data: SendCanvasSnapshotPayload): void => {
+        socket.to(data.roomCode).emit("send_canvas_snapshot", { targetSocketId: socket.id });
     });
 
-    // 2. The Drawer replies with the picture, and we forward it to the new player
-    socket.on("deliver_canvas_snapshot", (data: { targetSocketId: string; imageBase64: string }) => {
-        io.to(data.targetSocketId).emit("receive_canvas_snapshot", data.imageBase64);
+    // Drawer replies with the canvas state, forward to new player
+    socket.on("deliver_canvas_snapshot", (data: CanvasSnapshotPayload): void => {
+        io.to(data.targetSocketId).emit("receive_canvas_snapshot", { segments: data.segments });
     });
 };

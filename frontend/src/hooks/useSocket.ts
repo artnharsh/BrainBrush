@@ -1,6 +1,17 @@
 import { useEffect, useState } from "react";
 import { socket, connectSocket, disconnectSocket } from "../socketClient";
 import { useGameStore } from "../store/useGameStore";
+import type {
+  GameStartedEvent,
+  ChatMessage,
+  ScoreUpdateEvent,
+  TurnUpdatedEvent,
+  WordChosenEvent,
+  GameOverEvent,
+  NameDictUpdateEvent,
+  CorrectGuessersUpdateEvent,
+  SocketErrorEvent
+} from "../types/socketTypes";
 
 export const useSocket = () => {
   const [isConnected, setIsConnected] = useState(socket.connected);
@@ -9,17 +20,15 @@ export const useSocket = () => {
   const user = useGameStore((state) => state.user);
   const setRoom = useGameStore((state) => state.setRoom);
   const updatePlayers = useGameStore((state) => state.updatePlayers);
-  
+
   const startGameAction = useGameStore((state) => state.startGame);
   const addMessage = useGameStore((state) => state.addMessage);
   const updateScores = useGameStore((state) => state.updateScores);
   const syncGameState = useGameStore((state) => state.syncGameState);
   const updateTimer = useGameStore((state) => state.updateTimer);
-  const resetRoom = useGameStore((state) => state.resetRoom); 
+  const resetRoom = useGameStore((state) => state.resetRoom);
 
-  // ========================================================
   // EFFECT 1: STRICTLY FOR CONNECTING / DISCONNECTING
-  // ========================================================
   useEffect(() => {
     if (!isAuthenticated) {
       disconnectSocket();
@@ -43,84 +52,74 @@ export const useSocket = () => {
     };
   }, [isAuthenticated, resetRoom]);
 
-
-  // ========================================================
   // EFFECT 2: REGISTER NAME WHEN CONNECTED
-  // ========================================================
   useEffect(() => {
     if (isConnected && user) {
-      // 🚨 LOOK AT YOUR BROWSER CONSOLE FOR THIS MESSAGE!
-      console.log("🕵️ X-RAY -> My User Object:", user);
-
-      const realName = 
-        user.username || 
-        (user as any).name || 
-        (user as any).email?.split('@')[0] || 
+      const realName =
+        user.username ||
+        user.name ||
+        user.email?.split('@')[0] ||
         `Guest-${user.id.slice(-4)}`;
-      
+
       socket.emit("register_name", { id: user.id, username: realName });
     }
   }, [isConnected, user]);
 
-
-  // ========================================================
   // EFFECT 3: STRICTLY FOR GAME LISTENERS
-  // ========================================================
   useEffect(() => {
     if (!isAuthenticated || !isConnected) return;
 
-    const onRoomCreated = ({ roomCode }: { roomCode: string }) => {
+    const onRoomCreated = ({ roomCode }: { roomCode: string }): void => {
       if (user) setRoom(roomCode, [user.id], user.id);
     };
 
-    const onPlayerList = (players: string[]) => {
+    const onPlayerList = (players: string[]): void => {
       const assumedHostId = players[0];
       updatePlayers(players, assumedHostId);
     };
 
-    const onGameStarted = (gameState: any) => {
+    const onGameStarted = (gameState: GameStartedEvent): void => {
       startGameAction(gameState);
     };
 
-    const onChatMessage = (message: any) => {
+    const onChatMessage = (message: ChatMessage): void => {
       addMessage(message);
     };
 
-    const onScoreUpdate = (scores: any) => {
+    const onScoreUpdate = (scores: ScoreUpdateEvent): void => {
       updateScores(scores);
     };
 
-    const onTurnUpdated = (game: any) => {
+    const onTurnUpdated = (game: TurnUpdatedEvent): void => {
       syncGameState(game);
     };
 
-    const onWordChosen = (data: { hiddenWord: string }) => {
+    const onWordChosen = (data: WordChosenEvent): void => {
       const currentState = useGameStore.getState();
       if (currentState.user?.id !== currentState.currentDrawer) {
         syncGameState({ word: data.hiddenWord });
       }
     };
 
-    const onTimerUpdate = (time: number) => {
+    const onTimerUpdate = (time: number): void => {
       updateTimer(time);
     };
 
-    const onGameOver = (data: any) => {
-      console.log("🛑 Game Over:", data);
+    const onGameOver = (data: GameOverEvent): void => {
       useGameStore.getState().syncGameState({ gameStatus: 'podium' });
     };
 
-    const onError = (message: string) => {
-      console.error("🔴 Backend Error:", message);
-      alert(`Error: ${message}`);
+    const onError = (message: SocketErrorEvent): void => {
+      console.error("Backend Error:", message);
+      alert(`Error: ${message.message}`);
     };
 
-    const onNameDictUpdate = (dict: Record<string, string>) => {
+    const onNameDictUpdate = (dict: NameDictUpdateEvent): void => {
       useGameStore.getState().syncGameState({ playerNames: dict });
     };
 
-    const onCorrectGuessersUpdate = (guessers: string[]) => {
-      useGameStore.getState().syncGameState({ correctGuessers: guessers });
+    const onCorrectGuessersUpdate = (data: CorrectGuessersUpdateEvent): void => {
+      useGameStore.getState().syncGameState({ correctGuessers: data.guessers });
     };
 
     // Attach Listeners
@@ -153,7 +152,7 @@ export const useSocket = () => {
       socket.off("name_dict_update", onNameDictUpdate);
     };
   }, [
-    isAuthenticated, isConnected, user, setRoom, updatePlayers, 
+    isAuthenticated, isConnected, user, setRoom, updatePlayers,
     startGameAction, addMessage, updateScores, syncGameState, updateTimer, resetRoom
   ]);
 

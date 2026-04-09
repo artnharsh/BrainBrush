@@ -1,12 +1,16 @@
 import { Request, Response, NextFunction } from "express";
 
+interface ErrorWithStatus extends Error {
+    status?: number;
+}
+
 export const errorHandler = (
-    err: any,
+    err: ErrorWithStatus,
     req: Request,
     res: Response,
     next: NextFunction
-) => {
-    
+): void => {
+
     console.error(err);
 
     res.status(err.status || 500).json({
