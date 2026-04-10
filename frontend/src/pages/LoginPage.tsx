@@ -15,7 +15,6 @@ export default function LoginPage() {
   
   const handleGoogleLogin = () => {
     // Send the browser directly to the Express backend
-    console.log("🚨 The Google button was clicked!");
     window.location.href = "http://localhost:5000/auth/google";
   };
 

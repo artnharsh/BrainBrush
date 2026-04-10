@@ -11,11 +11,6 @@ export default function WordSelectionModal() {
 
   const isMyTurn = user?.id === currentDrawer;
 
-  // X-RAY DEBUGGING LOGS: Look at your browser console!
-  console.log("🕵️ Modal Debug -> My User ID:", user?.id);
-  console.log("🕵️ Modal Debug -> Current Drawer ID:", currentDrawer);
-  console.log("🕵️ Modal Debug -> Word Choices:", wordChoices);
-
   if (word) return null;
 
   if (!isMyTurn) {
@@ -24,13 +19,6 @@ export default function WordSelectionModal() {
         <h2 className="text-3xl font-black text-white animate-pulse tracking-widest text-center mb-4">
           WAITING FOR DRAWER TO CHOOSE A WORD...
         </h2>
-        
-        {/* X-RAY UI: So you can see the mismatch on screen! */}
-        <div className="bg-red-500 text-white p-4 rounded-xl text-sm font-mono mt-4 text-center">
-          <p><strong>🚨 DEBUG INFO 🚨</strong></p>
-          <p>Backend says drawer is: {currentDrawer || "NULL"}</p>
-          <p>My frontend ID is: {user?.id || "NULL"}</p>
-        </div>
       </div>
     );
   }
