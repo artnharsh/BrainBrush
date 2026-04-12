@@ -1,7 +1,7 @@
 import { Server } from "socket.io";
 import { AuthenticatedSocket, SocketErrorPayload, StartGamePayload } from "../types/socketTypes";
 import { createRoomRedis, joinRoomRedis, leaveRoomRedis, getRoomSettings, setRoomSettings } from "../services/roomService";
-import { startGame, nextTurn, handlePlayerLeave } from "../services/gameService";
+import { startGame, nextTurn, handlePlayerLeave, endGame } from "../services/gameService";
 import redis from "../config/redis";
 import { activeDrawers } from "./drawingSocket";
 
@@ -144,7 +144,11 @@ export const roomSocket = (io: Server, socket: AuthenticatedSocket): void => {
 
       if (isGameOver) {
         activeDrawers.delete(roomCode);
-        io.to(roomCode).emit("game_over", { reason: "Game finished!" });
+        const { winner, maxScore } = await endGame(roomCode, game);
+        io.to(roomCode).emit("game_over", {
+          reason: `Game Over! 🏆 The winner is ${winner} with ${maxScore} points!`,
+          game
+        });
       } else {
         activeDrawers.set(roomCode, game.drawer);
         io.to(roomCode).emit("turn_updated", game);
@@ -181,7 +185,11 @@ export const roomSocket = (io: Server, socket: AuthenticatedSocket): void => {
             activeDrawers.delete(roomCode);
             const { game, isGameOver } = await nextTurn(roomCode);
             if (isGameOver) {
-              io.to(roomCode).emit("game_over", { reason: "Game finished!" });
+              const { winner, maxScore } = await endGame(roomCode, game);
+              io.to(roomCode).emit("game_over", {
+                reason: `Game Over! 🏆 The winner is ${winner} with ${maxScore} points!`,
+                game
+              });
             } else {
               activeDrawers.set(roomCode, game.drawer);
               io.to(roomCode).emit("turn_updated", game);

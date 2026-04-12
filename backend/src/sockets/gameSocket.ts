@@ -2,7 +2,7 @@
 import { Server } from "socket.io";
 import { AuthenticatedSocket, RegisterNamePayload, ChooseWordPayload, GuessWordPayload, CanvasSnapshotPayload, SendCanvasSnapshotPayload } from "../types/socketTypes";
 import { processGuess } from "../services/scoringService";
-import { updateWord, nextTurn } from "../services/gameService";
+import { updateWord, nextTurn, endGame } from "../services/gameService";
 import { startRoundTimer, clearRoundTimer } from "../utils/timer";
 import { activeDrawers } from "./drawingSocket";
 
@@ -83,7 +83,11 @@ export const gameSocket = (io: Server, socket: AuthenticatedSocket): void => {
                     const { game, isGameOver } = await nextTurn(data.roomCode);
                     if (isGameOver) {
                         activeDrawers.delete(data.roomCode);
-                        io.to(data.roomCode).emit("game_over", { reason: "Game finished!" });
+                        const { winner, maxScore } = await endGame(data.roomCode, game);
+                        io.to(data.roomCode).emit("game_over", {
+                            reason: `Game Over! 🏆 The winner is ${winner} with ${maxScore} points!`,
+                            game
+                        });
                     } else {
                         activeDrawers.set(data.roomCode, game.drawer);
                         io.to(data.roomCode).emit("turn_updated", game);

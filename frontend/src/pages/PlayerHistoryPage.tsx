@@ -5,7 +5,7 @@ interface GameRecord {
   id: string;
   roomCode: string;
   winner: string;
-  winnerAvatar: string;
+  winnerAvatar?: string;
   playerCount: number;
   yourScore: number;
   rounds: number;
@@ -122,6 +122,24 @@ export default function PlayerHistoryPage() {
     }
   };
 
+  const renderWinnerAvatar = (winnerAvatar?: string) => {
+    if (winnerAvatar && winnerAvatar.startsWith("http")) {
+      return (
+        <img
+          src={winnerAvatar}
+          alt="Winner avatar"
+          className="h-10 w-10 rounded-full border-2 border-black object-cover"
+        />
+      );
+    }
+
+    return (
+      <div className="h-10 w-10 rounded-full border-2 border-black bg-white flex items-center justify-center text-lg font-black">
+        {winnerAvatar || "?"}
+      </div>
+    );
+  };
+
   return (
     <div className="min-h-screen bg-sky-100 p-4 font-sans pb-20">
       <div className="max-w-4xl mx-auto">
@@ -198,7 +216,7 @@ export default function PlayerHistoryPage() {
                       {/* Winner Badge */}
                       <div className="text-right">
                         <div className="text-xs font-bold text-gray-600 uppercase">Winner</div>
-                        <div className="text-2xl font-black">{game.winnerAvatar}</div>
+                        <div className="flex justify-end my-1">{renderWinnerAvatar(game.winnerAvatar)}</div>
                         <div className="font-bold text-sm">{game.winner}</div>
                       </div>
                     </div>
@@ -231,7 +249,7 @@ export default function PlayerHistoryPage() {
                           <tr
                             key={score.playerId}
                             className={`${
-                              score.score === game.yourScore ? "bg-yellow-50" : ""
+                              score.playerId === user?.id ? "bg-yellow-50" : ""
                             } border-b border-gray-300 hover:bg-gray-50`}
                           >
                             <td className="p-2 font-black text-lg">
@@ -239,7 +257,7 @@ export default function PlayerHistoryPage() {
                             </td>
                             <td className="p-2 font-bold">
                               {score.player}
-                              {score.score === game.yourScore ? " (You)" : ""}
+                              {score.playerId === user?.id ? " (You)" : ""}
                             </td>
                             <td className="p-2 font-black text-right">{score.score}</td>
                           </tr>

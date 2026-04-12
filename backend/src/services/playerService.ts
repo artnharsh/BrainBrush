@@ -1,5 +1,4 @@
 import GameHistory from "../models/GameHistory";
-import User from "../models/User";
 
 export interface PlayerGameRecord {
   id: string;
@@ -31,7 +30,7 @@ export const getPlayerGameHistory = async (
   try {
     // Find all games where this player participated
     const games = await GameHistory.find({ players: userId })
-      .populate("winner", "username name")
+      .populate("winner", "username name avatar")
       .populate("scores.player", "username name")
       .sort({ createdAt: -1 })
       .limit(limit)
@@ -52,15 +51,15 @@ export const getPlayerGameHistory = async (
       return {
         id: game._id?.toString() || "",
         roomCode: game.roomCode,
-        winner: game.winner?.username || "Unknown",
-        winnerAvatar: game.winner?.name || "?",
+        winner: game.winner?.username || game.winner?.name || "Unknown",
+        winnerAvatar: game.winner?.avatar || "?",
         playerCount: game.players.length,
         yourScore: playerScore?.score || 0,
         rounds: game.rounds,
         playedAt: new Date(game.createdAt).toLocaleString(),
         position,
         scores: game.scores.map((s: any) => ({
-          player: s.player?.username || "Unknown",
+          player: s.player?.username || s.player?.name || "Unknown",
           playerId: s.player?._id?.toString() || "",
           score: s.score
         }))
