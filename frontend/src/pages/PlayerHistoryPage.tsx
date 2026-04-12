@@ -1,5 +1,7 @@
 import { useState, useEffect } from "react";
 import { useGameStore } from "../store/useGameStore";
+import axiosClient from "../api/axiosClient"; 
+import { Trophy, Users, Star, Hash, Calendar, ChevronDown, Gamepad2, AlertCircle, RefreshCcw } from "lucide-react";
 
 interface GameRecord {
   id: string;
@@ -35,6 +37,26 @@ export default function PlayerHistoryPage() {
   const [error, setError] = useState<string | null>(null);
   const [expandedGameId, setExpandedGameId] = useState<string | null>(null);
 
+  const fetchHistory = async () => {
+    try {
+      setLoading(true);
+      setError(null);
+      
+      const [statsRes, historyRes] = await Promise.all([
+        axiosClient.get("/player/stats"),
+        axiosClient.get("/player/history?limit=50")
+      ]);
+
+      setStats(statsRes.data.data);
+      setHistory(historyRes.data.data);
+    } catch (err: any) {
+      console.error("History fetch error:", err);
+      setError(err.response?.data?.message || "Failed to load history. Is the backend running?");
+    } finally {
+      setLoading(false);
+    }
+  };
+
   useEffect(() => {
     if (!isAuthenticated || !user) {
       setError("Please log in to view your history");
@@ -42,234 +64,158 @@ export default function PlayerHistoryPage() {
       return;
     }
 
-    const fetchHistory = async () => {
-      try {
-        setLoading(true);
-        const token = localStorage.getItem("token");
-
-        // Fetch stats
-        const statsRes = await fetch("/api/player/stats", {
-          headers: { Authorization: `Bearer ${token}` }
-        });
-        if (statsRes.ok) {
-          const statsData = await statsRes.json();
-          setStats(statsData.data);
-        }
-
-        // Fetch history
-        const historyRes = await fetch("/api/player/history?limit=50", {
-          headers: { Authorization: `Bearer ${token}` }
-        });
-        if (historyRes.ok) {
-          const historyData = await historyRes.json();
-          setHistory(historyData.data);
-        } else {
-          setError("Failed to load game history");
-        }
-      } catch (err) {
-        const msg = err instanceof Error ? err.message : "Failed to fetch history";
-        setError(msg);
-      } finally {
-        setLoading(false);
-      }
-    };
-
     fetchHistory();
   }, [isAuthenticated, user]);
 
-  if (loading) {
-    return (
-      <div className="min-h-screen bg-sky-100 flex items-center justify-center">
-        <div className="text-2xl font-black">Loading your history...</div>
-      </div>
-    );
-  }
+  const getRankStyle = (position: number) => {
+    if (position === 1) return "bg-[#FFD700] border-[#B8860B] text-black shadow-[4px_4px_0px_#B8860B]";
+    if (position === 2) return "bg-[#C0C0C0] border-[#707070] text-black shadow-[4px_4px_0px_#707070]";
+    if (position === 3) return "bg-[#CD7F32] border-[#8B4513] text-black shadow-[4px_4px_0px_#8B4513]";
+    return "bg-white border-black shadow-[4px_4px_0px_rgba(0,0,0,1)]";
+  };
 
-  if (error) {
-    return (
-      <div className="min-h-screen bg-sky-100 flex items-center justify-center p-4">
-        <div className="bg-white border-4 border-black rounded-2xl p-8 shadow-[8px_8px_0px_rgba(0,0,0,1)]">
-          <h2 className="text-2xl font-black text-red-500 mb-4">Error</h2>
-          <p className="font-bold">{error}</p>
+  if (loading) return (
+    <div className="min-h-screen bg-sky-100 flex flex-col items-center justify-center font-black italic uppercase text-4xl gap-4">
+      <div className="animate-bounce">Loading History...</div>
+      <div className="h-4 w-64 bg-black border-2 border-black rounded-none p-1">
+        <div className="h-full bg-yellow-400 animate-[loading_1.5s_infinite]" style={{ width: '40%' }}></div>
+      </div>
+    </div>
+  );
+
+  if (error) return (
+    <div className="min-h-screen bg-[#F0F0F0] flex items-center justify-center p-6">
+      <div className="bg-white border-8 border-black p-10 shadow-[12px_12px_0px_#FF4444] max-w-lg w-full">
+        <div className="flex items-center gap-4 mb-4 text-[#FF4444]">
+          <AlertCircle size={48} strokeWidth={3} />
+          <h2 className="text-4xl font-black uppercase italic italic tracking-tighter">System Error</h2>
         </div>
+        <p className="text-xl font-bold mb-8 border-l-4 border-black pl-4">{error}</p>
+        <button 
+          onClick={() => fetchHistory()}
+          className="w-full bg-black text-white px-8 py-4 font-black uppercase italic text-xl flex items-center justify-center gap-3 hover:bg-yellow-400 hover:text-black transition-all active:translate-y-1 active:shadow-none shadow-[4px_4px_0px_rgba(0,0,0,0.3)]"
+        >
+          <RefreshCcw size={24} /> Try Again
+        </button>
       </div>
-    );
-  }
-
-  const getMedalEmoji = (position: number) => {
-    switch (position) {
-      case 1:
-        return "🥇";
-      case 2:
-        return "🥈";
-      case 3:
-        return "🥉";
-      default:
-        return "❌";
-    }
-  };
-
-  const getPositionColor = (position: number) => {
-    switch (position) {
-      case 1:
-        return "bg-yellow-100 border-yellow-400";
-      case 2:
-        return "bg-gray-100 border-gray-400";
-      case 3:
-        return "bg-orange-100 border-orange-400";
-      default:
-        return "bg-red-50 border-red-300";
-    }
-  };
-
-  const renderWinnerAvatar = (winnerAvatar?: string) => {
-    if (winnerAvatar && winnerAvatar.startsWith("http")) {
-      return (
-        <img
-          src={winnerAvatar}
-          alt="Winner avatar"
-          className="h-10 w-10 rounded-full border-2 border-black object-cover"
-        />
-      );
-    }
-
-    return (
-      <div className="h-10 w-10 rounded-full border-2 border-black bg-white flex items-center justify-center text-lg font-black">
-        {winnerAvatar || "?"}
-      </div>
-    );
-  };
+    </div>
+  );
 
   return (
-    <div className="min-h-screen bg-sky-100 p-4 font-sans pb-20">
-      <div className="max-w-4xl mx-auto">
-        {/* Header */}
-        <div className="mb-8">
-          <h1 className="text-5xl font-black text-yellow-400 drop-shadow-[2px_2px_0px_rgba(0,0,0,1)] uppercase">
-            Game History
-          </h1>
-          <p className="text-lg font-bold text-gray-700 mt-2">
-            Playing as: <span className="text-blue-600">{user?.username}</span>
-          </p>
-        </div>
+    <div className="min-h-screen bg-[#F0F0F0] p-6 font-sans text-black">
+      <div className="max-w-5xl mx-auto">
+        
+        {/* Header Section */}
+        <header className="flex flex-col md:flex-row md:items-end justify-between mb-12 gap-6">
+          <div>
+            <div className="flex items-center gap-3 mb-2">
+              <Gamepad2 size={32} strokeWidth={3} />
+              <span className="font-black italic text-xl uppercase tracking-tighter bg-black text-white px-2">Player Log</span>
+            </div>
+            <h1 className="text-7xl font-black uppercase tracking-tighter leading-none italic">
+              Legacy <span className="text-yellow-400 drop-shadow-[4px_4px_0px_#000]">Records</span>
+            </h1>
+          </div>
+          <div className="bg-white border-4 border-black p-4 rotate-2 shadow-[6px_6px_0px_#000]">
+            <p className="font-black uppercase text-[10px] text-gray-500 mb-1">Active Profile</p>
+            <p className="text-2xl font-black italic leading-none">{user?.username}</p>
+          </div>
+        </header>
 
-        {/* Stats Cards */}
+        {/* Stats Grid */}
         {stats && (
-          <div className="grid grid-cols-2 md:grid-cols-5 gap-4 mb-8">
+          <div className="grid grid-cols-2 lg:grid-cols-5 gap-4 mb-12">
             {[
-              { label: "Total Games", value: stats.totalGames, color: "bg-blue-100" },
-              { label: "Wins", value: stats.wins, color: "bg-green-100" },
-              { label: "Win Rate", value: `${stats.winRate}%`, color: "bg-purple-100" },
-              { label: "Avg Score", value: stats.avgScore, color: "bg-orange-100" },
-              { label: "Total Score", value: stats.totalScore, color: "bg-pink-100" }
-            ].map((stat, idx) => (
-              <div
-                key={idx}
-                className={`${stat.color} border-4 border-black rounded-xl p-4 shadow-[4px_4px_0px_rgba(0,0,0,1)] text-center`}
-              >
-                <div className="text-3xl font-black">{stat.value}</div>
-                <div className="text-xs font-bold text-gray-600 uppercase">{stat.label}</div>
+              { label: "Games", val: stats.totalGames, icon: <Hash size={18}/>, color: "bg-blue-400" },
+              { label: "Victories", val: stats.wins, icon: <Trophy size={18}/>, color: "bg-green-400" },
+              { label: "Win Rate", val: `${stats.winRate}%`, icon: <Star size={18}/>, color: "bg-yellow-400" },
+              { label: "Avg Score", val: Math.round(Number(stats.avgScore)), icon: <Users size={18}/>, color: "bg-purple-400" },
+              { label: "Total pts", val: stats.totalScore, icon: <Trophy size={18}/>, color: "bg-pink-400" },
+            ].map((s, i) => (
+              <div key={i} className={`${s.color} border-4 border-black p-4 shadow-[4px_4px_0px_#000] flex flex-col justify-between h-32 hover:-translate-y-1 transition-transform`}>
+                <div className="flex justify-between items-start">
+                    <span className="bg-white p-1 border-2 border-black rounded-none">{s.icon}</span>
+                    <span className="font-black text-4xl italic leading-none">{s.val}</span>
+                </div>
+                <span className="font-black uppercase italic text-[10px] tracking-widest">{s.label}</span>
               </div>
             ))}
           </div>
         )}
 
-        {/* Game History List */}
-        {history.length === 0 ? (
-          <div className="bg-white border-4 border-black rounded-2xl p-8 shadow-[8px_8px_0px_rgba(0,0,0,1)] text-center">
-            <p className="text-2xl font-black text-gray-500">No games played yet!</p>
-            <p className="text-lg font-bold text-gray-400 mt-2">Join a room and start drawing 🎨</p>
-          </div>
-        ) : (
-          <div className="space-y-3">
-            {history.map((game) => (
-              <div key={game.id} className="space-y-2">
-                {/* Game Summary Row */}
-                <button
-                  onClick={() =>
-                    setExpandedGameId(expandedGameId === game.id ? null : game.id)
-                  }
-                  className={`w-full ${getPositionColor(
-                    game.position
-                  )} border-4 border-black rounded-xl p-4 transition-all active:translate-y-1 active:shadow-none shadow-[4px_4px_0px_rgba(0,0,0,1)] cursor-pointer hover:scale-102`}
+        {/* History List */}
+        <div className="space-y-6">
+          <h2 className="text-2xl font-black uppercase italic inline-block bg-black text-white px-4 py-1 skew-x-[-10deg]">Recent Timeline</h2>
+          
+          {history.length === 0 ? (
+            <div className="bg-white border-4 border-black p-12 text-center shadow-[10px_10px_0px_#000]">
+                <p className="text-3xl font-black italic uppercase">No Data Found</p>
+                <p className="font-bold text-gray-600 mt-2 uppercase text-sm">Start a match to populate your legacy.</p>
+            </div>
+          ) : (
+            history.map((game) => (
+              <div key={game.id} className="group">
+                <div 
+                  onClick={() => setExpandedGameId(expandedGameId === game.id ? null : game.id)}
+                  className={`${getRankStyle(game.position)} border-4 border-black p-5 flex flex-wrap items-center justify-between cursor-pointer transition-all hover:translate-x-2 relative z-10 active:translate-y-1 active:shadow-none`}
                 >
-                  <div className="flex items-center justify-between">
-                    <div className="flex items-center gap-4 flex-1">
-                      {/* Position Badge */}
-                      <div className="text-4xl">{getMedalEmoji(game.position)}</div>
-
-                      {/* Game Info */}
-                      <div className="text-left flex-1">
-                        <div className="font-black text-lg">
-                          {game.position === 1 ? "🎉 WINNER!" : `Place #${game.position}`}
+                  <div className="flex items-center gap-6">
+                    <div className="text-5xl font-black italic tracking-tighter opacity-30 select-none">#{game.position}</div>
+                    <div>
+                        <div className="flex items-center gap-2 mb-1">
+                            <span className="bg-black text-white text-[10px] font-black px-2 py-0.5 rounded-none uppercase">Room: {game.roomCode}</span>
+                            <span className="flex items-center gap-1 text-[11px] font-black text-gray-700 uppercase tracking-tight"><Calendar size={12}/> {game.playedAt}</span>
                         </div>
-                        <div className="font-bold text-sm text-gray-700">
-                          Score: <span className="text-2xl">{game.yourScore}</span> • Room:{" "}
-                          <span className="font-black">{game.roomCode}</span>
+                        <div className="text-3xl font-black italic uppercase leading-none tracking-tight">
+                            Scored <span className="text-white drop-shadow-[2px_2px_0px_#000]">{game.yourScore}</span> points
                         </div>
-                        <div className="text-xs font-bold text-gray-600 mt-1">
-                          {game.playerCount} players • {game.rounds} round
-                          {game.rounds > 1 ? "s" : ""} • {game.playedAt}
-                        </div>
-                      </div>
-
-                      {/* Winner Badge */}
-                      <div className="text-right">
-                        <div className="text-xs font-bold text-gray-600 uppercase">Winner</div>
-                        <div className="flex justify-end my-1">{renderWinnerAvatar(game.winnerAvatar)}</div>
-                        <div className="font-bold text-sm">{game.winner}</div>
-                      </div>
-                    </div>
-
-                    {/* Expand Arrow */}
-                    <div
-                      className={`text-2xl font-black ml-4 transition-transform ${
-                        expandedGameId === game.id ? "rotate-180" : ""
-                      }`}
-                    >
-                      ▼
                     </div>
                   </div>
-                </button>
 
-                {/* Expanded Details (Final Scores Table) */}
+                  <div className="flex items-center gap-8">
+                    <div className="hidden md:block text-right border-l-2 border-black/20 pl-6">
+                        <p className="text-[10px] font-black uppercase text-gray-500">Winner</p>
+                        <p className="font-black italic text-lg leading-tight uppercase">{game.winner}</p>
+                    </div>
+                    <ChevronDown className={`transition-transform duration-300 ${expandedGameId === game.id ? 'rotate-180' : ''}`} strokeWidth={4}/>
+                  </div>
+                </div>
+
+                {/* Expanded Details Section */}
                 {expandedGameId === game.id && (
-                  <div className="bg-white border-4 border-black border-t-0 rounded-b-xl p-4 shadow-[4px_4px_0px_rgba(0,0,0,1)]">
-                    <div className="font-bold text-sm uppercase mb-3">Final Scores</div>
-                    <table className="w-full text-sm">
-                      <thead>
-                        <tr className="border-b-2 border-black">
-                          <th className="text-left font-black p-2">Position</th>
-                          <th className="text-left font-black p-2">Player</th>
-                          <th className="text-right font-black p-2">Score</th>
-                        </tr>
-                      </thead>
-                      <tbody>
-                        {game.scores.map((score, idx) => (
-                          <tr
-                            key={score.playerId}
-                            className={`${
-                              score.playerId === user?.id ? "bg-yellow-50" : ""
-                            } border-b border-gray-300 hover:bg-gray-50`}
-                          >
-                            <td className="p-2 font-black text-lg">
-                              {getMedalEmoji(idx + 1)}
-                            </td>
-                            <td className="p-2 font-bold">
-                              {score.player}
-                              {score.playerId === user?.id ? " (You)" : ""}
-                            </td>
-                            <td className="p-2 font-black text-right">{score.score}</td>
-                          </tr>
-                        ))}
-                      </tbody>
-                    </table>
+                  <div className="bg-white border-4 border-black p-6 -mt-1 mx-4 shadow-[8px_8px_0px_#000] animate-in slide-in-from-top-4 duration-300 relative z-0">
+                    <div className="grid md:grid-cols-2 gap-8">
+                        <div>
+                            <h4 className="font-black uppercase italic mb-4 border-b-4 border-black inline-block text-sm">Final Scoreboard</h4>
+                            <div className="space-y-2">
+                                {game.scores.map((s, idx) => (
+                                    <div key={idx} className={`flex justify-between items-center p-2 border-2 ${s.playerId === user?.id ? 'bg-yellow-200 border-black shadow-[2px_2px_0px_#000]' : 'border-black/10 text-gray-500'}`}>
+                                        <span className="font-black italic text-sm">#{idx + 1} {s.player} {s.playerId === user?.id && '(YOU)'}</span>
+                                        <span className="font-black text-lg">{s.score}</span>
+                                    </div>
+                                ))}
+                            </div>
+                        </div>
+                        <div className="bg-gray-100 p-4 border-4 border-black border-dashed">
+                             <h4 className="font-black uppercase italic mb-2 text-sm">Match Analysis</h4>
+                             <div className="space-y-2 font-black uppercase text-xs italic">
+                                <div className="flex justify-between"><span>Rounds</span> <span>{game.rounds}</span></div>
+                                <div className="flex justify-between"><span>Players</span> <span>{game.playerCount}</span></div>
+                                <div className="flex justify-between border-t-2 border-black pt-2">
+                                    <span>Difficulty</span> 
+                                    <span className={game.playerCount > 4 ? 'text-red-600' : 'text-blue-600'}>
+                                        {game.playerCount > 4 ? 'HARDCORE' : 'STANDARD'}
+                                    </span>
+                                </div>
+                             </div>
+                        </div>
+                    </div>
                   </div>
                 )}
               </div>
-            ))}
-          </div>
-        )}
+            ))
+          )}
+        </div>
       </div>
     </div>
   );

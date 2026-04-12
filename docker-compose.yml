@@ -1,0 +1,51 @@
+services:
+  mongodb:
+    image: mongo:7
+    container_name: scribble-mongo
+    restart: unless-stopped
+    ports:
+      - "27017:27017"
+    volumes:
+      - mongo_data:/data/db
+
+  redis:
+    image: redis:7
+    container_name: scribble-redis
+    restart: unless-stopped
+    ports:
+      - "6379:6379"
+    volumes:
+      - redis_data:/data
+
+  backend:
+    build: ./backend       
+    container_name: scribble-backend
+    restart: unless-stopped
+    ports:
+      - "5000:5000"
+    depends_on:
+      - mongodb
+      - redis
+    env_file:
+      - ./backend/.env     
+    environment:
+      - MONGO_URI=mongodb://mongodb:27017/scribble
+      - REDIS_URL=redis://redis:6379
+      - PORT=5000
+
+  frontend:
+    build: 
+      context: ./frontend
+      # 🚨 NEW: Passing the backend URL to Vite during the build!
+      args:
+        - VITE_BACKEND_URL=http://localhost:5000
+    container_name: scribble-frontend
+    restart: unless-stopped
+    ports:
+      - "80:80"            
+    depends_on:
+      - backend
+
+volumes:
+  mongo_data:
+  redis_data:

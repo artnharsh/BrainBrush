@@ -2,8 +2,14 @@ import axios from 'axios';
 import { useGameStore } from '../store/useGameStore';
 import { reportError, toAppError } from '../utils/errorHandler';
 
+// 🚨 FIX 1: Read the exact variable we passed from Docker
+// 🚨 FIX 2: Append '/api' if your backend routes require it
+const apiBase = import.meta.env.VITE_BACKEND_URL 
+    ? `${import.meta.env.VITE_BACKEND_URL}/api` 
+    : 'http://localhost:5000/api';
+
 const axiosClient = axios.create({
-    baseURL: import.meta.env.VITE_API_BASE_URL || 'http://localhost:5000/api', // Adjust as needed
+    baseURL: apiBase, 
     headers: {
         'Content-Type': 'application/json',
     },
@@ -21,7 +27,7 @@ axiosClient.interceptors.request.use(
     (error) => Promise.reject(error)
 );  
 
-//add response interceptor to handle 401 errors globally
+// Add response interceptor to handle 401 errors globally
 axiosClient.interceptors.response.use(
     (response) => response,
     (error) => {
