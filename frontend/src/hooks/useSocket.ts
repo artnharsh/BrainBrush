@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import { socket, connectSocket, disconnectSocket } from "../socketClient";
 import { useGameStore } from "../store/useGameStore";
+import { useErrorHandler } from "./useErrorHandler";
 import type {
   GameStartedEvent,
   ChatMessage,
@@ -14,6 +15,7 @@ import type {
 
 export const useSocket = () => {
   const [isConnected, setIsConnected] = useState(socket.connected);
+  const { handleError } = useErrorHandler();
 
   const isAuthenticated = useGameStore((state) => state.isAuthenticated);
   const user = useGameStore((state) => state.user);
@@ -113,8 +115,8 @@ export const useSocket = () => {
     };
 
     const onError = (message: SocketErrorEvent): void => {
-      console.error("Backend Error:", message);
-      alert(`Error: ${message.message}`);
+      handleError(new Error(message.message), "socket");
+      addMessage({ sender: "System", text: message.message, type: "system" });
     };
 
     const onNameDictUpdate = (dict: NameDictUpdateEvent): void => {
@@ -156,7 +158,7 @@ export const useSocket = () => {
     };
   }, [
     isAuthenticated, isConnected, user, setRoom, updatePlayers,
-    startGameAction, addMessage, updateScores, syncGameState, updateTimer, resetRoom
+    startGameAction, addMessage, updateScores, syncGameState, updateTimer, resetRoom, handleError
   ]);
 
   return { socket, isConnected };

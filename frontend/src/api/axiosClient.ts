@@ -1,5 +1,6 @@
 import axios from 'axios';
 import { useGameStore } from '../store/useGameStore';
+import { reportError, toAppError } from '../utils/errorHandler';
 
 const axiosClient = axios.create({
     baseURL: import.meta.env.VITE_API_BASE_URL || 'http://localhost:5000/api', // Adjust as needed
@@ -24,6 +25,8 @@ axiosClient.interceptors.request.use(
 axiosClient.interceptors.response.use(
     (response) => response,
     (error) => {
+        reportError(toAppError(error, 'api'));
+
         if (error.response && error.response.status === 401) {
             console.warn("Token expired or invalid. Logging out");
 
@@ -33,7 +36,7 @@ axiosClient.interceptors.response.use(
             // Clear auth state and redirect to login
             const gameStore = useGameStore.getState();
             gameStore.clearAuth();
-            window.location.href = '/login'; // Adjust as needed
+            window.location.href = '/';
         }
         return Promise.reject(error);
     }

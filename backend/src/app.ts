@@ -4,13 +4,12 @@ import session from "express-session";
 import passport from "./config/passport";
 import authRoutes from "./routes/authRoutes";
 import playerRoutes from "./routes/playerRoutes";
-import { errorHandler } from "./middlewares/errorMiddleware";
+import { errorHandler, notFoundHandler } from "./middlewares/errorMiddleware";
 
 const app = express();
 
 app.use(cors());
 app.use(express.json());
-app.use(errorHandler);
 
 app.use(
     session({
@@ -30,6 +29,9 @@ app.use("/api/player", playerRoutes);
 app.get("/", (req, res) => {
     res.send("Scribble Backend is Running");
 });
+
+app.use(notFoundHandler);
+app.use(errorHandler);
 
 
 export default app;
