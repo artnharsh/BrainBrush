@@ -1,24 +1,48 @@
 import redis from "../config/redis";
 import GameHistory from "../models/GameHistory";
 import { GameState } from "../types/gameTypes";
-import { getRandomWords } from "../utils/wordGenerator"
+import { getRandomWords } from "../utils/wordGenerator";
+import { getWordsByDifficultyAndCategory } from "../utils/wordLists";
+import { getRoomSettings, GameSettingsConfig } from "./roomService";
 
 const Game_TTL = 3600; // 1 hour in seconds
 
-export const startGame = async (roomCode: string, players: string[]): Promise<GameState> => {
+export const startGame = async (roomCode: string, players: string[], settings?: GameSettingsConfig): Promise<GameState> => {
   if (!players || players.length === 0) throw new Error("Not enough players");
+
+  // Fetch room settings from Redis (use provided settings or get from room)
+  let gameSettings = settings;
+  if (!gameSettings) {
+    gameSettings = await getRoomSettings(roomCode);
+  }
+
+  // Get word list based on difficulty and category
+  const wordSource = getWordsByDifficultyAndCategory(
+    gameSettings.wordDifficulty,
+    (gameSettings.wordCategory as any) || 'random',
+    gameSettings.customWords
+  );
+
+  // Get 3 random words for drawer to choose from
+  const wordChoices = getRandomWords(3, wordSource);
 
   const gameState: GameState = {
     roomCode,
     players, // Save the ordered list of players
     currentPlayerIndex: 0, // Start with the first player
     currentRound: 1,
-    totalRounds: 1, // Defaulting to 3 rounds for the game
+    totalRounds: gameSettings.maxRounds || 1,
     drawer: players[0],
     word: "",
-    wordChoices: getRandomWords(3),
-    timer: 60,
+    wordChoices,
+    timer: 60, // Fixed at 60 seconds
     scores: {},
+    gameConfig: {
+      wordDifficulty: gameSettings.wordDifficulty,
+      wordSource, // Store the full word list for this game
+      timerDuration: 60,
+      maxRounds: gameSettings.maxRounds || 1
+    }
   };
 
   players.forEach((p) => {
@@ -109,7 +133,8 @@ export const nextTurn = async (roomCode: string): Promise<{ game: GameState; isG
   if (!isGameOver) {
     game.drawer = game.players[game.currentPlayerIndex];
     game.word = "";
-    game.wordChoices = getRandomWords(3);
+    // Use the word list from gameConfig to ensure consistency across turns
+    game.wordChoices = getRandomWords(3, game.gameConfig.wordSource);
     game.timer = 60;
   }
 

@@ -1,6 +1,6 @@
 import { Server } from "socket.io";
-import { AuthenticatedSocket, SocketErrorPayload } from "../types/socketTypes";
-import { createRoomRedis, joinRoomRedis, leaveRoomRedis } from "../services/roomService";
+import { AuthenticatedSocket, SocketErrorPayload, StartGamePayload } from "../types/socketTypes";
+import { createRoomRedis, joinRoomRedis, leaveRoomRedis, getRoomSettings, setRoomSettings } from "../services/roomService";
 import { startGame, nextTurn, handlePlayerLeave } from "../services/gameService";
 import redis from "../config/redis";
 import { activeDrawers } from "./drawingSocket";
@@ -79,9 +79,22 @@ export const roomSocket = (io: Server, socket: AuthenticatedSocket): void => {
     }
   });
 
-  // START GAME - host starts the game
-  socket.on("start_game", async (roomCode: string): Promise<void> => {
+  // START GAME - host starts the game with optional settings
+  socket.on("start_game", async (payload: StartGamePayload | string): Promise<void> => {
     try {
+      // Handle backward compatibility: if payload is just a string, it's the roomCode
+      let roomCode: string;
+      let settings: any;
+
+      if (typeof payload === 'string') {
+        // Old format: just roomCode
+        roomCode = payload;
+      } else {
+        // New format: { roomCode, settings }
+        roomCode = (payload as StartGamePayload).roomCode;
+        settings = (payload as StartGamePayload).settings;
+      }
+
       // Get the current players from Redis
       const players = await redis.smembers(`room:${roomCode}:players`);
 
@@ -92,8 +105,28 @@ export const roomSocket = (io: Server, socket: AuthenticatedSocket): void => {
         return;
       }
 
-      // Initialize the game state in Redis
-      const gameState = await startGame(roomCode, players);
+      // If settings provided, validate and store them
+      if (settings) {
+        if (settings.maxRounds < 1 || settings.maxRounds > 5) {
+          const error: SocketErrorPayload = { message: "maxRounds must be between 1 and 5" };
+          socket.emit("error", error);
+          return;
+        }
+
+        if (settings.wordCategory === 'custom') {
+          if (!settings.customWords || settings.customWords.length < 3) {
+            const error: SocketErrorPayload = { message: "At least 3 custom words required" };
+            socket.emit("error", error);
+            return;
+          }
+        }
+
+        // Store settings in Redis
+        await setRoomSettings(roomCode, settings);
+      }
+
+      // Initialize the game state in Redis with settings
+      const gameState = await startGame(roomCode, players, settings);
       activeDrawers.set(roomCode, gameState.drawer);
 
       // Broadcast the starting state to everyone

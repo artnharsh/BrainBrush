@@ -10,6 +10,13 @@ interface RoomInfo {
   host?: string | null;
 }
 
+export interface GameSettingsConfig {
+  maxRounds: number;
+  wordDifficulty: 'easy' | 'medium' | 'hard';
+  wordCategory?: 'random' | 'animals' | 'food' | 'sports' | 'tech' | 'custom';
+  customWords?: string[];
+}
+
 const generateRoomCode = (): string => {
   return Math.random().toString(36).substring(2, 8).toUpperCase();
 };
@@ -78,4 +85,78 @@ export const getRoomRedis = async (roomCode: string): Promise<RoomCreationResult
   const host = await redis.get(`room:${roomCode}:host`);
 
   return { roomCode, players };
+};
+
+// ==========================================
+// GAME SETTINGS STORAGE
+// ==========================================
+
+/**
+ * Store game settings for a room
+ * Settings are stored in Redis with same TTL as room
+ */
+export const setRoomSettings = async (
+  roomCode: string,
+  settings: GameSettingsConfig
+): Promise<void> => {
+  const settingsKey = `room:${roomCode}:settings`;
+
+  // Validate settings
+  if (settings.maxRounds < 1 || settings.maxRounds > 5) {
+    throw new Error("maxRounds must be between 1 and 5");
+  }
+
+  // Store as JSON
+  await redis.set(settingsKey, JSON.stringify(settings));
+
+  // Apply TTL (same as room)
+  await redis.expire(settingsKey, ROOM_TTL);
+};
+
+/**
+ * Get game settings for a room
+ * Returns default settings if none exist
+ */
+export const getRoomSettings = async (roomCode: string): Promise<GameSettingsConfig> => {
+  const settingsKey = `room:${roomCode}:settings`;
+
+  const settingsStr = await redis.get(settingsKey);
+
+  if (!settingsStr) {
+    // Return default settings
+    return {
+      maxRounds: 1,
+      wordDifficulty: 'medium',
+      wordCategory: 'random'
+    };
+  }
+
+  return JSON.parse(settingsStr) as GameSettingsConfig;
+};
+
+/**
+ * Update game settings for a room
+ */
+export const updateRoomSettings = async (
+  roomCode: string,
+  settings: Partial<GameSettingsConfig>
+): Promise<GameSettingsConfig> => {
+  const existing = await getRoomSettings(roomCode);
+
+  const updated = {
+    ...existing,
+    ...settings
+  };
+
+  await setRoomSettings(roomCode, updated);
+
+  return updated;
+};
+
+/**
+ * Delete room settings when room is cleaned up
+ */
+export const deleteRoomSettings = async (roomCode: string): Promise<void> => {
+  const settingsKey = `room:${roomCode}:settings`;
+  await redis.del(settingsKey);
 };

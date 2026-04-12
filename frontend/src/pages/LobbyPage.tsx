@@ -3,6 +3,7 @@ import { useState, useEffect } from "react";
 import { useSocket } from "../hooks/useSocket";
 import { useGameStore } from "../store/useGameStore";
 import PlayerList from "../components/PlayerList";
+import GameSettingsPanel from "../components/GameSettingsPanel";
 import Loader from "../components/Loader";
 import { useNavigate } from "react-router-dom";
 
@@ -76,7 +77,23 @@ export default function LobbyPage() {
 
   const handleStartGame = () => {
     if (!roomCode) return;
-    socket.emit("start_game", roomCode);
+
+    // Get settings from store
+    const gameSettings = useGameStore.getState().gameSettings;
+
+    // Validate settings
+    if (gameSettings.wordCategory === "custom") {
+      if (!gameSettings.customWords || gameSettings.customWords.length < 3) {
+        alert("Please enter at least 3 custom words!");
+        return;
+      }
+    }
+
+    // Emit start_game with settings
+    socket.emit("start_game", {
+      roomCode,
+      settings: gameSettings
+    });
   };
 
   const handleLeaveRoom = () => {
@@ -111,12 +128,20 @@ export default function LobbyPage() {
       
       {/* Top Header Bar (Connection Status & Logout) */}
       <div className="absolute top-4 left-4 right-4 flex justify-between items-center z-10">
-        <button 
-          onClick={handleLogout}
-          className="bg-white border-2 border-black px-4 py-2 rounded-xl font-bold hover:bg-red-100 transition-colors shadow-[4px_4px_0px_rgba(0,0,0,1)] active:translate-y-1 active:shadow-none"
-        >
-          LOGOUT
-        </button>
+        <div className="flex gap-2">
+          <button
+            onClick={() => navigate("/history")}
+            className="bg-purple-400 border-2 border-black px-4 py-2 rounded-xl font-bold hover:bg-purple-500 transition-colors shadow-[4px_4px_0px_rgba(0,0,0,1)] active:translate-y-1 active:shadow-none"
+          >
+            📊 HISTORY
+          </button>
+          <button
+            onClick={handleLogout}
+            className="bg-white border-2 border-black px-4 py-2 rounded-xl font-bold hover:bg-red-100 transition-colors shadow-[4px_4px_0px_rgba(0,0,0,1)] active:translate-y-1 active:shadow-none"
+          >
+            LOGOUT
+          </button>
+        </div>
 
         <div className="flex items-center gap-2 font-bold border-2 border-black px-4 py-2 rounded-full bg-white shadow-[4px_4px_0px_rgba(0,0,0,1)]">
           <div className={`w-3 h-3 rounded-full border-2 border-black ${isConnected ? 'bg-green-400' : 'bg-red-500 animate-pulse'}`}></div>
@@ -186,7 +211,7 @@ export default function LobbyPage() {
                 <p className="font-bold text-gray-500 uppercase tracking-widest mb-1 text-sm">Room Code</p>
                 <h2 className="text-4xl font-black tracking-widest text-black">{roomCode}</h2>
               </div>
-              <button 
+              <button
                 onClick={handleLeaveRoom}
                 className="bg-red-400 hover:bg-red-500 text-black border-4 border-black px-6 py-2 rounded-xl font-black shadow-[4px_4px_0px_rgba(0,0,0,1)] active:translate-y-1 active:shadow-none transition-all"
               >
@@ -195,6 +220,8 @@ export default function LobbyPage() {
             </div>
 
             <PlayerList />
+
+            <GameSettingsPanel />
 
             {user?.id === hostId ? (
               <button 

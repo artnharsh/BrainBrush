@@ -14,6 +14,12 @@ export interface GameState {
   wordChoices: string[];
   timer: number;
   scores: Record<string, number>;
+  gameConfig: {
+    wordDifficulty: string;
+    wordSource: string[];
+    timerDuration: number;
+    maxRounds: number;
+  };
 }
 
 // ==========================================
@@ -35,6 +41,21 @@ export interface ChatMessage {
   sender: string;
   text: string;
   type: 'normal' | 'success' | 'error';
+}
+
+// ==========================================
+// SOCKET EVENT PAYLOADS - GAME SETTINGS
+// ==========================================
+export interface GameSettingsPayload {
+  maxRounds: number;
+  wordDifficulty: 'easy' | 'medium' | 'hard';
+  wordCategory?: 'random' | 'animals' | 'food' | 'sports' | 'tech' | 'custom';
+  customWords?: string[];
+}
+
+export interface StartGamePayload {
+  roomCode: string;
+  settings?: GameSettingsPayload;
 }
 
 // ==========================================

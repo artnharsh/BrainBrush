@@ -7,7 +7,6 @@ import type {
   ScoreUpdateEvent,
   TurnUpdatedEvent,
   WordChosenEvent,
-  GameOverEvent,
   NameDictUpdateEvent,
   CorrectGuessersUpdateEvent,
   SocketErrorEvent
@@ -55,10 +54,9 @@ export const useSocket = () => {
   // EFFECT 2: REGISTER NAME WHEN CONNECTED
   useEffect(() => {
     if (isConnected && user) {
+      // Fix 1: removed user.name and user.email — not on User type
       const realName =
         user.username ||
-        user.name ||
-        user.email?.split('@')[0] ||
         `Guest-${user.id.slice(-4)}`;
 
       socket.emit("register_name", { id: user.id, username: realName });
@@ -82,8 +80,12 @@ export const useSocket = () => {
       startGameAction(gameState);
     };
 
+    // Fix 2: map socketTypes ChatMessage to store ChatMessage, converting "error" -> "system"
     const onChatMessage = (message: ChatMessage): void => {
-      addMessage(message);
+      addMessage({
+        ...message,
+        type: message.type === "error" ? "system" : message.type,
+      });
     };
 
     const onScoreUpdate = (scores: ScoreUpdateEvent): void => {
@@ -105,7 +107,8 @@ export const useSocket = () => {
       updateTimer(time);
     };
 
-    const onGameOver = (data: GameOverEvent): void => {
+    // Fix 3: removed unused `data` parameter
+    const onGameOver = (): void => {
       useGameStore.getState().syncGameState({ gameStatus: 'podium' });
     };
 

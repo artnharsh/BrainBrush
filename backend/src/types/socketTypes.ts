@@ -119,6 +119,21 @@ export interface NameDictUpdatePayload {
 }
 
 // ==========================================
+// SOCKET EVENT PAYLOADS - GAME SETTINGS
+// ==========================================
+export interface GameSettingsPayload {
+  maxRounds: number;
+  wordDifficulty: 'easy' | 'medium' | 'hard';
+  wordCategory?: 'random' | 'animals' | 'food' | 'sports' | 'tech' | 'custom';
+  customWords?: string[];
+}
+
+export interface StartGamePayload {
+  roomCode: string;
+  settings?: GameSettingsPayload; // Optional, uses defaults if not provided
+}
+
+// ==========================================
 // ERROR RESPONSES
 // ==========================================
 export interface SocketErrorPayload {

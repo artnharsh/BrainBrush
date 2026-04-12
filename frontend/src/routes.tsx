@@ -2,6 +2,7 @@ import { createBrowserRouter } from "react-router-dom";
 import LoginPage from "./pages/LoginPage";
 import LobbyPage from "./pages/LobbyPage";
 import GamePage from "./pages/GamePage";
+import PlayerHistoryPage from "./pages/PlayerHistoryPage";
 import ProtectedRoute from "./components/ProtectedRoute";
 import AuthSuccessPage from "./pages/AuthSuccessPage";
 
@@ -22,6 +23,10 @@ export const router = createBrowserRouter([
       {
         path: "game",
         element: <GamePage />,
+      },
+      {
+        path: "history",
+        element: <PlayerHistoryPage />,
       },
     ],
   },
