@@ -227,26 +227,25 @@ export default function CanvasBoard() {
       <WordSelectionModal />
 
       {isMyTurn && (
-        <div className="bg-gray-100 border-b-4 border-black p-2 flex flex-wrap gap-4 items-center justify-between z-10">
-          <div className="flex gap-2">
-            {COLORS.map(c => (
-              <button
-                key={c}
-                onClick={() => { setBrushColor(c); setIsEraser(false); }}
-                className={`w-8 h-8 rounded-full border-2 ${brushColor === c && !isEraser ? 'border-black scale-110 shadow-md' : 'border-gray-300'}`}
-                style={{ backgroundColor: c }}
-              />
-            ))}
+        <div className="bg-gray-100 border-b-4 border-black p-2 flex items-center justify-between z-10 overflow-x-auto no-scrollbar">          <div className="flex gap-2">
+          {COLORS.map(c => (
             <button
-              onClick={() => setIsEraser(true)}
-              className={`w-8 h-8 rounded-full border-2 flex items-center justify-center bg-white ${isEraser ? 'border-black scale-110 shadow-md ring-2 ring-red-400' : 'border-gray-300'}`}
-              title="Erase Entire Line"
-            >
-              🧹
-            </button>
-          </div>
+              key={c}
+              onClick={() => { setBrushColor(c); setIsEraser(false); }}
+              className={`w-8 h-8 rounded-full border-2 ${brushColor === c && !isEraser ? 'border-black scale-110 shadow-md' : 'border-gray-300'}`}
+              style={{ backgroundColor: c }}
+            />
+          ))}
+          <button
+            onClick={() => setIsEraser(true)}
+            className={`w-8 h-8 rounded-full border-2 flex items-center justify-center bg-white ${isEraser ? 'border-black scale-110 shadow-md ring-2 ring-red-400' : 'border-gray-300'}`}
+            title="Erase Entire Line"
+          >
+            🧹
+          </button>
+        </div>
 
-          <div className="flex gap-2 items-center">
+          <div className="flex gap-1 md:gap-2 items-center shrink-0 ml-4">
             <button onClick={() => setBrushSize(3)} className={`p-1 rounded font-bold ${brushSize === 3 ? 'bg-gray-300' : ''}`}>Thin</button>
             <button onClick={() => setBrushSize(6)} className={`p-1 rounded font-bold ${brushSize === 6 ? 'bg-gray-300' : ''}`}>Med</button>
             <button onClick={() => setBrushSize(12)} className={`p-1 rounded font-bold ${brushSize === 12 ? 'bg-gray-300' : ''}`}>Thick</button>
@@ -254,7 +253,7 @@ export default function CanvasBoard() {
 
           <button
             onClick={handleClearCanvas}
-            className="bg-red-500 text-white px-3 py-1 rounded font-bold border-2 border-black hover:bg-red-600"
+            className="ml-2 bg-red-500 text-white px-2 md:px-3 py-1 rounded text-xs md:text-base font-bold border-2 border-black"
           >
             Clear All
           </button>
@@ -265,8 +264,7 @@ export default function CanvasBoard() {
         ref={canvasRef}
         onMouseDown={startDrawing} onMouseMove={draw} onMouseUp={stopDrawing} onMouseOut={stopDrawing}
         onTouchStart={startDrawing} onTouchMove={draw} onTouchEnd={stopDrawing}
-        className={`touch-none flex-1 w-full block ${isMyTurn ? (isEraser ? 'cursor-cell' : 'cursor-crosshair') : 'cursor-default'}`}
-      />
+        className={`touch-none flex-1 w-full block ${isMyTurn ? (isEraser ? 'cursor-cell' : 'cursor-crosshair') : 'cursor-default'}`} />
     </div>
   );
 }
