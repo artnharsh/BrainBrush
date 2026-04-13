@@ -1,13 +1,4 @@
 services:
-  mongodb:
-    image: mongo:7
-    container_name: scribble-mongo
-    restart: unless-stopped
-    ports:
-      - "27017:27017"
-    volumes:
-      - mongo_data:/data/db
-
   redis:
     image: redis:7
     container_name: scribble-redis
@@ -24,12 +15,10 @@ services:
     ports:
       - "5000:5000"
     depends_on:
-      - mongodb
       - redis
     env_file:
       - ./backend/.env     
     environment:
-      - MONGO_URI=mongodb://mongodb:27017/scribble
       - REDIS_URL=redis://redis:6379
       - PORT=5000
 
