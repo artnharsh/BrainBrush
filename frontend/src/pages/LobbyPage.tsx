@@ -13,10 +13,10 @@ export default function LobbyPage() {
   // ==========================================
 
   const navigate = useNavigate();
-  
+
   // 2. Pull gameStatus from the store
   const gameStatus = useGameStore((state) => state.gameStatus);
-  
+
   // ... (keep your other hooks)
 
   // 3. Add this magical useEffect right next to your other ones:
@@ -27,11 +27,11 @@ export default function LobbyPage() {
     }
   }, [gameStatus, navigate]);
 
-  
+
   const { socket, isConnected } = useSocket();
   const [joinCode, setJoinCode] = useState("");
   const [isLoading, setIsLoading] = useState(false);
-  
+
   const user = useGameStore((state) => state.user);
   const roomCode = useGameStore((state) => state.roomCode);
   const hostId = useGameStore((state) => state.hostId);
@@ -52,13 +52,13 @@ export default function LobbyPage() {
   const handleCreateRoom = () => {
     if (!tempName.trim()) return alert("Please enter a display name!");
     setIsLoading(true);
-    
+
     // 🚨 NEW: Tell the backend Phonebook about our custom typed name!
     if (user) {
       socket.emit("register_name", { id: user.id, username: tempName });
     }
-    
-    socket.emit("create_room"); 
+
+    socket.emit("create_room");
   };
 
   const handleJoinRoom = (e: React.FormEvent) => {
@@ -105,8 +105,8 @@ export default function LobbyPage() {
   };
 
   const handleLogout = () => {
-    socket.disconnect(); 
-    clearAuth(); 
+    socket.disconnect();
+    clearAuth();
   };
 
   // ==========================================
@@ -125,7 +125,7 @@ export default function LobbyPage() {
   // ==========================================
   return (
     <div className="min-h-screen bg-sky-100 flex flex-col items-center justify-center p-4 font-sans relative">
-      
+
       {/* Top Header Bar (Connection Status & Logout) */}
       <div className="absolute top-4 left-4 right-4 flex justify-between items-center z-10">
         <div className="flex gap-2">
@@ -150,10 +150,25 @@ export default function LobbyPage() {
       </div>
 
       <div className="w-full max-w-2xl bg-white border-4 border-black rounded-2xl shadow-[8px_8px_0px_rgba(0,0,0,1)] p-8 -rotate-1 relative mt-12">
-        
-        <header className="text-center mb-8">
-          <h1 className="text-5xl font-black text-yellow-400 drop-shadow-[2px_2px_0px_rgba(0,0,0,1)] tracking-wider uppercase rotate-1">
-            {roomCode ? "Waiting Room" : "Play Skribbl"}
+
+        <header className="text-center mb-8 md:mb-10">
+          <h1 className="text-5xl md:text-6xl font-black tracking-tighter uppercase italic -rotate-1">
+            {roomCode ? (
+              <span className="text-yellow-400 drop-shadow-[4px_4px_0px_rgba(0,0,0,1)]">
+                Waiting Room
+              </span>
+            ) : (
+              <>
+                {/* 'Play' gets the loud yellow style */}
+                <span className="text-yellow-400 drop-shadow-[4px_4px_0px_rgba(0,0,0,1)] mr-3">
+                  Play
+                </span>
+                {/* 'Brain' is solid black, 'Brush!' is loud yellow */}
+                <span className="text-black">
+                  Brain<span className="text-yellow-400 drop-shadow-[4px_4px_0px_rgba(0,0,0,1)]">Brush!</span>
+                </span>
+              </>
+            )}
           </h1>
         </header>
 
@@ -161,8 +176,8 @@ export default function LobbyPage() {
           <div className="flex flex-col gap-6">
             <div className="bg-yellow-100 border-4 border-black p-4 rounded-xl shadow-[4px_4px_0px_rgba(0,0,0,1)]">
               <label className="block font-black text-lg mb-2 uppercase tracking-widest text-gray-700">Display Name</label>
-              <input 
-                type="text" 
+              <input
+                type="text"
                 value={tempName}
                 onChange={(e) => setTempName(e.target.value)}
                 maxLength={15}
@@ -173,7 +188,7 @@ export default function LobbyPage() {
             <div className="flex flex-col md:flex-row gap-8 items-stretch mt-4">
               <div className="flex-1 bg-green-100 border-4 border-black rounded-xl p-6 flex flex-col items-center justify-center text-center shadow-[4px_4px_0px_rgba(0,0,0,1)]">
                 <h2 className="text-2xl font-black mb-4">Start a Game</h2>
-                <button 
+                <button
                   onClick={handleCreateRoom}
                   disabled={!isConnected}
                   className="w-full bg-green-400 hover:bg-green-500 text-black border-4 border-black py-3 rounded-xl font-black text-xl shadow-[4px_4px_0px_rgba(0,0,0,1)] active:translate-y-1 active:shadow-none transition-all disabled:opacity-50"
@@ -186,15 +201,15 @@ export default function LobbyPage() {
 
               <form onSubmit={handleJoinRoom} className="flex-1 bg-blue-100 border-4 border-black rounded-xl p-6 flex flex-col items-center justify-center text-center shadow-[4px_4px_0px_rgba(0,0,0,1)]">
                 <h2 className="text-2xl font-black mb-4">Join a Game</h2>
-                <input 
-                  type="text" 
+                <input
+                  type="text"
                   placeholder="6-LETTER CODE"
                   value={joinCode}
                   onChange={(e) => setJoinCode(e.target.value.toUpperCase())}
                   maxLength={6}
                   className="w-full border-4 border-black p-3 rounded-xl font-black text-center text-xl tracking-widest mb-4 focus:outline-none focus:ring-4 focus:ring-blue-300 uppercase"
                 />
-                <button 
+                <button
                   type="submit"
                   disabled={!isConnected || joinCode.length < 6}
                   className="w-full bg-blue-400 hover:bg-blue-500 text-black border-4 border-black py-3 rounded-xl font-black text-xl shadow-[4px_4px_0px_rgba(0,0,0,1)] active:translate-y-1 active:shadow-none transition-all disabled:opacity-50"
@@ -224,7 +239,7 @@ export default function LobbyPage() {
             <GameSettingsPanel />
 
             {user?.id === hostId ? (
-              <button 
+              <button
                 onClick={handleStartGame}
                 className="w-full mt-4 bg-purple-500 hover:bg-purple-600 text-white border-4 border-black py-4 rounded-xl font-black text-2xl shadow-[6px_6px_0px_rgba(0,0,0,1)] active:translate-y-1 active:shadow-[2px_2px_0px_rgba(0,0,0,1)] transition-all tracking-widest"
               >

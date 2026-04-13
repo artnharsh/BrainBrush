@@ -1,4 +1,3 @@
-// src/pages/GamePage.tsx
 import { useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import { useGameStore } from "../store/useGameStore";
@@ -22,32 +21,47 @@ export default function GamePage() {
   }, [gameStatus, navigate]);
 
   return (
-    <div className="min-h-screen bg-sky-100 p-2 md:p-6 lg:p-8 font-sans flex flex-col items-center">
-      <div className="w-full max-w-[1600px] flex flex-col gap-4 md:gap-6">
+    // 🚨 FIX 1: Let the page scroll! Removed all overflow hiding. Added pb-10 for bottom padding.
+    <div className="min-h-screen relative flex flex-col items-center p-2 md:p-6 bg-sky-100 font-sans pb-10">
+      
+      {/* Doodle Background Layer */}
+      <div 
+        className="absolute inset-0 z-0 opacity-15 pointer-events-none"
+        style={{ 
+            backgroundImage: "url('/doodle-pattern.png')", 
+            backgroundSize: "400px",
+            backgroundRepeat: "repeat" 
+        }}
+      />
+
+      <div className="relative z-10 w-full max-w-[1500px] flex flex-col gap-4">
+        
         <GameHeader />
         
         {gameStatus === 'podium' ? (
           <Podium />
         ) : (
-          /* MOBILE: Stacked (Canvas first via order-first)
-             DESKTOP: 3-Column Grid 
+          /* 🚨 FIX 2: Switched to Flexbox with HARDCODED widths for the sidebars.
+             On desktop (lg), it forms a massive 750px tall row.
+             On mobile, it stacks gracefully. 
           */
-          <div className="grid grid-cols-1 lg:grid-cols-4 gap-4 md:gap-6 lg:h-[calc(100vh-180px)]">
+          <div className="flex flex-col lg:flex-row gap-4 w-full h-auto lg:h-[750px]">
             
-            {/* Column 1: ScoreBoard (Hidden/Bottom on mobile, Left on Desktop) */}
-            <div className="order-2 lg:order-1 lg:col-span-1 h-[400px] lg:h-full">
+            {/* Column 1: Leaderboard (LOCKED to 280px wide on desktop) */}
+            <div className="lg:w-[280px] lg:shrink-0 h-[350px] lg:h-full">
                <ScoreBoard />
             </div>
             
-            {/* Column 2: Canvas (Top on mobile, Middle on Desktop) */}
-            <div className="order-1 lg:order-2 lg:col-span-2 h-[450px] md:h-[600px] lg:h-full">
+            {/* Column 2: Canvas (Fills all remaining space in the middle) */}
+            <div className="flex-1 min-w-0 h-[500px] lg:h-full">
               <CanvasBoard />
             </div>
             
-            {/* Column 3: Chat (Bottom on mobile, Right on Desktop) */}
-            <div className="order-3 lg:order-3 lg:col-span-1 h-[450px] lg:h-full">
+            {/* Column 3: Chat (LOCKED to 320px wide on desktop) */}
+            <div className="lg:w-[320px] lg:shrink-0 h-[450px] lg:h-full">
               <ChatBox />
             </div>
+
           </div>
         )}
       </div>

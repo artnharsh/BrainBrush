@@ -268,4 +268,44 @@ Clear Canvas (The Nuke): This is the easiest one. When someone clicks "Clear" or
 -------------------------------------------------------------------------------------------------------------------------
 -------------------------------------------------------------------------------------------------------------------------
 
+1. The Core Objective: Containerization
+What: We wrapped the Node.js backend and React frontend into Docker containers.
+
+Why: To eliminate the "it works on my machine" problem. It ensures the app runs identically on Arch Linux, Windows, or a Production Cloud Server by packaging the OS, Node version, and dependencies together.
+
+Key Detail: We used Multi-Stage Builds for the frontend to keep the final image size small (compiling in Node, then serving via Nginx).
+
+2. The Web Server: Nginx (Reverse Proxy)
+What: We introduced Nginx to serve the static frontend files instead of using Vite’s dev server.
+
+Why: * Performance: Nginx is incredibly fast at serving static assets (HTML/JS/CSS) compared to Node.
+
+Routing: We configured Nginx to handle Single Page Application (SPA) routing. It redirects all deep-link requests (like /lobby or /history) back to index.html so React Router doesn't 404 on a page refresh.
+
+Security: It acts as a shield, hiding the internal container structure from the public internet.
+
+3. Orchestration: Docker Compose
+What: Created a master docker-compose.yml in the project root.
+
+Why: It manages the entire "stack" as a single unit. With one command (docker-compose up), it handles:
+
+Networking: Creating a private bridge network so the Backend can talk to Redis/Mongo using container names instead of IP addresses.
+
+Environment Injection: Passing VITE_BACKEND_URL into the frontend build process so the client knows exactly where the API lives.
+
+4. Production Optimization: TypeScript Compilation
+What: Switched from nodemon/ts-node to a tsc build workflow.
+
+Why: * Runtime Speed: Running pre-compiled JavaScript (node dist/server.js) is significantly faster and uses less memory than compiling TypeScript on-the-fly.
+
+Stability: The build step catches type errors before the container is even deployed.
+
+5. Architectural Shift: Local to Cloud (Upcoming)
+Why we are moving to MongoDB Atlas / Cloud Redis: * Persistence: Local Docker volumes can be wiped; Cloud DBs offer managed backups.
+
+Scalability: Managed services handle sharding and high availability, allowing the app to handle more concurrent "Scribblers" without manual DB tuning.
+
+-------------------------------------------------------------------------------------------------------------------------
+-------------------------------------------------------------------------------------------------------------------------
+
 
