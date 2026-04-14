@@ -4,8 +4,8 @@ import { reportError, toAppError } from '../utils/errorHandler';
 
 // 🚨 FIX 1: Read the exact variable we passed from Docker
 // 🚨 FIX 2: Append '/api' if your backend routes require it
-const apiBase = import.meta.env.VITE_BACKEND_URL 
-    ? `${import.meta.env.VITE_BACKEND_URL}/api` 
+const apiBase = import.meta.env.VITE_API_BASE_URL
+    ? `${import.meta.env.VITE_API_BASE_URL}` 
     : 'http://localhost:5000/api';
 
 const axiosClient = axios.create({
