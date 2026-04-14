@@ -16,7 +16,7 @@ export default function LoginPage() {
   
   const handleGoogleLogin = () => {
     // 🚨 Upgraded to use your environment variable so it works locally AND in production!
-    const backendUrl = import.meta.env.VITE_BACKEND_URL || "http://localhost:5000";
+    const backendUrl = import.meta.env.VITE_API_BASE_URL || "http://localhost:5000";
     window.location.href = `${backendUrl}/auth/google`;
   };
 
