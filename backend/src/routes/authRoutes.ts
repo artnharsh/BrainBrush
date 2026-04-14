@@ -19,7 +19,7 @@ router.get(
     
     // THIS is the only line that is different from your original working code!
     // Instead of res.json, we throw the token into the URL and send them to React.
-    res.redirect(`http://localhost/auth/success?token=${token}`);
+    res.redirect(`${process.env.FRONTEND_URL}/auth/success?token=${token}`);
   }
 );
 
