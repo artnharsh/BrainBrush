@@ -75,22 +75,37 @@ export default function CanvasBoard() {
   useEffect(() => {
     const canvas = canvasRef.current;
     if (!canvas) return;
-    const resizeCanvas = () => {
-      const parent = canvas.parentElement;
-      if (!parent) return;
-      const { width, height } = parent.getBoundingClientRect();
+
+    // Use ResizeObserver to catch flexbox layout shifts (like modals closing!)
+    const resizeObserver = new ResizeObserver(() => {
+      const rect = canvas.getBoundingClientRect();
       const dpr = window.devicePixelRatio || 1;
-      canvas.width = width * dpr;
-      canvas.height = height * dpr;
-      canvas.style.width = `${width}px`;
-      canvas.style.height = `${height}px`;
-      const ctx = canvas.getContext("2d");
-      if (ctx) ctx.scale(dpr, dpr);
-      redrawCanvas();
-    };
-    resizeCanvas();
-    window.addEventListener("resize", resizeCanvas);
-    return () => window.removeEventListener("resize", resizeCanvas);
+
+      // Only recalibrate if physical dimensions actually changed
+      const newWidth = rect.width * dpr;
+      const newHeight = rect.height * dpr;
+
+      if (canvas.width !== newWidth || canvas.height !== newHeight) {
+        // IMPORTANT: Let Tailwind's `flex-1 w-full` handle CSS size. 
+        // We only set the internal HTML resolution here.
+        canvas.width = newWidth;
+        canvas.height = newHeight;
+
+        const ctx = canvas.getContext("2d");
+        if (ctx) {
+          ctx.setTransform(1, 0, 0, 1, 0, 0);
+          ctx.scale(dpr, dpr);
+        }
+
+        // Redraw existing lines so they don't vanish on resize
+        redrawCanvas();
+      }
+    });
+
+    // Attach observer directly to the canvas
+    resizeObserver.observe(canvas);
+
+    return () => resizeObserver.disconnect();
   }, []);
 
   // --- SOCKET LISTENERS (LOCKED IN) ---
@@ -229,7 +244,7 @@ export default function CanvasBoard() {
       {isMyTurn && (
         /* 🚨 FIX: Added shrink-0 and flex-wrap. If the screen shrinks, the tools wrap to a new line instead of breaking the canvas! */
         <div className="shrink-0 bg-gray-100 border-b-4 border-black p-2 flex flex-wrap gap-3 items-center justify-between z-10">
-          
+
           <div className="flex flex-wrap gap-2">
             {COLORS.map(c => (
               <button
