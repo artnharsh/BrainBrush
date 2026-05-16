@@ -7,6 +7,8 @@ The project is split into two apps:
 - `backend/`: Express, Socket.IO, MongoDB, Redis, and Google OAuth/JWT auth
 - `frontend/`: React 19, TypeScript, Vite, Socket.IO client, Zustand, and Tailwind CSS
 
+For folder-specific setup and architecture details, see [backend/README.md](backend/README.md) and [frontend/README.md](frontend/README.md).
+
 ## Features
 
 - Google authentication with JWT-based session handoff
