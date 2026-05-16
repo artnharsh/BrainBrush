@@ -1,5 +1,6 @@
 import redis from "../config/redis";
 import GameHistory from "../models/GameHistory";
+import User from "../models/User";
 import { GameState } from "../types/gameTypes";
 import { getRandomWords } from "../utils/wordGenerator";
 import { getWordsByDifficultyAndCategory } from "../utils/wordLists";
@@ -180,18 +181,33 @@ export const handlePlayerLeave = async(roomCode: string, userId: string): Promis
 };
 
 export const endGame = async(roomCode: string, finalGameState: GameState): Promise<{ winner: string; maxScore: number }> => {
-  let winner = "";
+  let winnerId = "";
   let maxScore = -1;
+
+  // 1. Fetch all users from MongoDB to get their real names
+  const users = await User.find({ _id: { $in: finalGameState.players } });
+  
+  // 2. Map IDs to Names
+  const userMap: Record<string, string> = {};
+  users.forEach(u => {
+    userMap[u._id.toString()] = u.name || "Unknown Player"; 
+  });
+
   const formattedScores = [];
 
-  for( const player of finalGameState.players) {
-    const score = finalGameState.scores[player] || 0;
+  for(const playerId of finalGameState.players) {
+    const score = finalGameState.scores[playerId] || 0;
 
-    formattedScores.push({ player: player, score: score});
+    // 3. Assemble exactly what the schema and frontend expect
+    formattedScores.push({ 
+      player: userMap[playerId] || "Unknown", 
+      playerId: playerId,                     
+      score: score
+    });
 
     if(score > maxScore) {
       maxScore = score;
-      winner = player;
+      winnerId = playerId;
     }
   }
 
@@ -200,17 +216,18 @@ export const endGame = async(roomCode: string, finalGameState: GameState): Promi
       roomCode: finalGameState.roomCode,
       players: finalGameState.players,
       scores: formattedScores,
-      winner: winner,
+      winner: userMap[winnerId] || "Unknown", 
+      winnerId: winnerId,
       rounds: finalGameState.totalRounds
     });
 
     await history.save();
-    console.log(`Game history saved to MongoDB for room: ${roomCode}`);
+    console.log(`[MONGODB] Game history saved for room: ${roomCode}`);
 
   } catch (error) {
     console.error("Failed to save the game history to MongoDB: ", error);
   }
 
   await redis.del(`game:${roomCode}`);
-  return {winner, maxScore};
+  return { winner: userMap[winnerId] || "Unknown", maxScore };
 };

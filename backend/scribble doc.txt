@@ -510,3 +510,144 @@ Docker Compose automatically creates a magic internal DNS. You must change your 
 ❌ mongodb://localhost:27017/skribbl
 
 ✅ mongodb://mongodb:27017/skribbl
+
+------------------------------------------------------------------
+------------------------------------------------------------------
+
+
+S — Situation
+
+I was testing my backend APIs (/history, /stats) using k6 load testing and observed:
+
+p95 latency ~3–3.5 seconds
+High response times under just 200 virtual users
+Database becoming the bottleneck
+
+The issue was coming from inefficient MongoDB queries and poor data access patterns.
+
+🎯 T — Task
+
+My goal was to:
+
+Reduce API latency to sub-300ms
+Improve scalability under concurrent load
+Optimize database queries without breaking existing functionality
+⚡ A — Action (this is where most people fail — be precise)
+1️⃣ Fixed Schema Design (Root Cause Fix)
+Problem:
+players: [{ type: String }]
+Queries were string-based → no efficient indexing
+Mixed with ObjectId in other places → inconsistency
+Action:
+players: [{ type: mongoose.Schema.Types.ObjectId, ref: "User" }]
+Why it works:
+MongoDB indexes work efficiently on ObjectId
+Enables faster filtering using indexed queries
+2️⃣ Added Compound Index (Biggest Performance Win)
+Problem:
+GameHistory.find({ players: userId }).sort({ createdAt: -1 })
+
+👉 Without index:
+
+Full collection scan (O(n))
+In-memory sort
+Action:
+gameHistorySchema.index({ players: 1, createdAt: -1 });
+Impact:
+Query becomes index scan (O(log n))
+Sorting handled inside index (no memory sort)
+3️⃣ Removed .populate() (Hidden Performance Killer)
+Problem:
+.populate("winner")
+.populate("scores.player")
+
+👉 This caused:
+
+Multiple additional DB queries
+Increased latency per request
+Action (Denormalization):
+
+Added:
+
+winnerName: String
+
+Replaced:
+
+winner: game.winner?.username
+
+With:
+
+winner: game.winnerName
+Why:
+Avoids runtime joins
+Trades small storage cost for huge read performance
+4️⃣ Reduced Data Fetch (Projection + Limit)
+Problem:
+
+Fetching entire documents:
+
+GameHistory.find(...)
+Action:
+.select("roomCode players scores winner winnerName rounds createdAt")
+.limit(limit)
+Why:
+Reduces payload size
+Faster serialization + network transfer
+5️⃣ Replaced JS Loops with Aggregation (Stats Endpoint)
+Problem:
+const games = await GameHistory.find(...)
+games.filter(...)
+games.reduce(...)
+
+👉 Issue:
+
+Loads ALL data into memory
+CPU-heavy
+Does not scale
+Action:
+
+Used MongoDB aggregation:
+
+GameHistory.aggregate([
+  { $match: { players: userId } },
+  { $group: { totalGames: { $sum: 1 }, ... } }
+])
+Why:
+DB is optimized for aggregation
+Avoids transferring large datasets to Node.js
+Reduces CPU usage in backend
+6️⃣ Used .lean() (Micro-optimization but important)
+Problem:
+
+Mongoose returns full documents with overhead
+
+Action:
+.find(...).lean()
+Why:
+Returns plain JS objects
+Faster read performance
+Less memory usage
+📊 R — Result
+
+After implementing these changes:
+
+Latency reduced:
+👉 ~3.5s → 100–300ms
+Throughput increased:
+👉 ~48 req/s → significantly higher under same load
+DB load reduced:
+No full scans
+No unnecessary joins
+Efficient indexed queries
+System became scalable and production-ready
+💣 Final Interview Punchline (this matters)
+
+If they push you:
+
+❓ “Can you make it 50ms?”
+
+Say:
+
+👉
+“Not reliably with just database optimization.
+To reach ~50ms consistently, I would introduce caching (like Redis) or precomputed stats, because DB queries—even optimized—still have I/O latency.”

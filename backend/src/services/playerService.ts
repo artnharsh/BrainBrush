@@ -1,4 +1,5 @@
 import GameHistory from "../models/GameHistory";
+import mongoose from "mongoose";
 
 export interface PlayerGameRecord {
   id: string;
@@ -28,48 +29,49 @@ export const getPlayerGameHistory = async (
   limit: number = 20
 ): Promise<PlayerGameRecord[]> => {
   try {
-    // Find all games where this player participated
     const games = await GameHistory.find({ players: userId })
-      .populate("winner", "username name avatar")
-      .populate("scores.player", "username name")
+      .select("roomCode players scores winner winnerId rounds createdAt")
       .sort({ createdAt: -1 })
       .limit(limit)
       .lean();
 
-    // Transform into UI-friendly format
-    const records: PlayerGameRecord[] = games.map((game: any) => {
-      // Find player's score
-      const playerScore = game.scores.find(
-        (s: any) => s.player?._id?.toString() === userId
-      );
+    return games.map((game: any) => {
+      let playerScore = 0;
+      let position = 1;
 
-      // Calculate player's position (1st, 2nd, 3rd, etc)
-      const sortedScores = [...game.scores].sort((a: any, b: any) => b.score - a.score);
-      const position =
-        sortedScores.findIndex((s: any) => s.player?._id?.toString() === userId) + 1;
+      let rank = 1;
+      const sorted = game.scores.sort((a: any, b: any) => b.score - a.score);
+
+      for (const s of sorted) {
+        // ✅ FIXED: We check `s.playerId` instead of `s.player`
+        if (s.playerId && s.playerId.toString() === userId) {
+          playerScore = s.score;
+          position = rank;
+          break;
+        }
+        rank++;
+      }
 
       return {
-        id: game._id?.toString() || "",
+        id: game._id.toString(),
         roomCode: game.roomCode,
-        winner: game.winner?.username || game.winner?.name || "Unknown",
-        winnerAvatar: game.winner?.avatar || "?",
+        // ✅ FIXED: We use `game.winner` directly since our new schema saves the string there
+        winner: game.winner || "Unknown",
         playerCount: game.players.length,
-        yourScore: playerScore?.score || 0,
+        yourScore: playerScore,
         rounds: game.rounds,
-        playedAt: new Date(game.createdAt).toLocaleString(),
+        playedAt: game.createdAt,
         position,
         scores: game.scores.map((s: any) => ({
-          player: s.player?.username || s.player?.name || "Unknown",
-          playerId: s.player?._id?.toString() || "",
+          player: s.player || "Unknown",
+          // ✅ FIXED: Ensure we map the correct ObjectId to a string for the frontend
+          playerId: s.playerId ? s.playerId.toString() : "",
           score: s.score
         }))
       };
     });
-
-    return records;
   } catch (error) {
-    const msg = error instanceof Error ? error.message : "Failed to fetch game history";
-    throw new Error(`Failed to fetch player game history: ${msg}`);
+    throw new Error("Failed to fetch history");
   }
 };
 
@@ -80,28 +82,73 @@ export const getPlayerGameHistory = async (
  */
 export const getPlayerStats = async (userId: string) => {
   try {
-    const games = await GameHistory.find({ players: userId })
-      .populate("winner")
-      .lean();
+    const userObjectId = new mongoose.Types.ObjectId(userId);
 
-    const totalGames = games.length;
-    const wins = games.filter((g: any) => g.winner?._id?.toString() === userId).length;
-    const totalScore = games.reduce((sum: number, game: any) => {
-      const playerScore = game.scores.find(
-        (s: any) => s.player?.toString() === userId
-      );
-      return sum + (playerScore?.score || 0);
-    }, 0);
+    const result = await GameHistory.aggregate([
+      { $match: { players: userObjectId } },
+
+      {
+        $project: {
+          // ✅ FIXED: We need `winnerId` to properly check for wins
+          winnerId: 1, 
+          scores: 1
+        }
+      },
+
+      {
+        $addFields: {
+          // ✅ FIXED: Compare `winnerId` against the user's ObjectId
+          isWin: { $eq: ["$winnerId", userObjectId] }, 
+          playerScore: {
+            $let: {
+              vars: {
+                scoreObj: {
+                  $first: {
+                    $filter: {
+                      input: "$scores",
+                      as: "s",
+                      // ✅ FIXED: Compare `$$s.playerId` against the user's ObjectId
+                      cond: { $eq: ["$$s.playerId", userObjectId] } 
+                    }
+                  }
+                }
+              },
+              in: "$$scoreObj.score"
+            }
+          }
+        }
+      },
+
+      {
+        $group: {
+          _id: null,
+          totalGames: { $sum: 1 },
+          wins: { $sum: { $cond: ["$isWin", 1, 0] } },
+          totalScore: { $sum: "$playerScore" }
+        }
+      }
+    ]);
+
+    const stats = result[0] || {
+      totalGames: 0,
+      wins: 0,
+      totalScore: 0
+    };
 
     return {
-      totalGames,
-      wins,
-      winRate: totalGames > 0 ? ((wins / totalGames) * 100).toFixed(1) : "0",
-      avgScore: totalGames > 0 ? (totalScore / totalGames).toFixed(0) : "0",
-      totalScore
+      totalGames: stats.totalGames,
+      wins: stats.wins,
+      winRate:
+        stats.totalGames > 0
+          ? ((stats.wins / stats.totalGames) * 100).toFixed(1)
+          : "0",
+      avgScore:
+        stats.totalGames > 0
+          ? (stats.totalScore / stats.totalGames).toFixed(0)
+          : "0",
+      totalScore: stats.totalScore
     };
   } catch (error) {
-    const msg = error instanceof Error ? error.message : "Failed to fetch player stats";
-    throw new Error(`Failed to fetch player stats: ${msg}`);
+    throw new Error("Failed to fetch stats");
   }
 };
