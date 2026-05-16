@@ -1,6 +1,6 @@
-# Scribble Frontend
+# BrainBrush Frontend
 
-This folder contains the React client for Scribble, the multiplayer drawing and guessing game.
+This folder contains the React client for BrainBrush, the multiplayer drawing and guessing game.
 
 ## What This App Does
 

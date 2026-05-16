@@ -1,6 +1,6 @@
-# Scribble Backend
+# BrainBrush Backend
 
-This folder contains the Express, Socket.IO, MongoDB, Redis, and authentication layer for Scribble.
+This folder contains the Express, Socket.IO, MongoDB, Redis, and authentication layer for BrainBrush.
 
 ## What This Service Does
 

@@ -1,6 +1,6 @@
-# Scribble
+# BrainBrush
 
-Scribble is a real-time multiplayer drawing and guessing game with Google sign-in, live rooms, synchronized canvas updates, in-game chat, scoring, and player history tracking.
+BrainBrush is a real-time multiplayer drawing and guessing game with Google sign-in, live rooms, synchronized canvas updates, in-game chat, scoring, and player history tracking.
 
 The project is split into two apps:
 
