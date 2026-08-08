@@ -126,6 +126,11 @@ export interface NameDictUpdateEvent {
   [userId: string]: string;
 }
 
+export interface PlayerNameUpdatedEvent {
+  id: string;
+  name: string;
+}
+
 // ==========================================
 // SOCKET EVENT PAYLOADS - ERROR HANDLING
 // ==========================================

@@ -1,7 +1,5 @@
 import { Server } from "socket.io";
 import { nextTurn, endGame } from "../services/gameService";
-import { guessedCorrectlyCache } from "../services/scoringService"; // <-- Put this at the top
-
 // 🚨 IMPORT THE BOUNCER CACHE
 import { activeDrawers } from "../sockets/drawingSocket";
 
@@ -60,6 +58,5 @@ export const clearRoundTimer = (roomCode: string) => {
         clearInterval(timerId);
         activeTimers.delete(roomCode);
         timeRemaining.delete(roomCode); // 🚨 3. Delete the memory when the round ends
-        guessedCorrectlyCache.delete(roomCode); // 🚨 4. Clear the guess cache for this room
     }
 };

@@ -21,6 +21,7 @@ export const roomSocket = (io: Server, socket: AuthenticatedSocket): void => {
       socket.emit("room_created", { roomCode });
     } catch (error) {
       const errorMessage = error instanceof Error ? error.message : "Failed to create room";
+      console.error(`[roomSocket] Error creating room:`, error);
       socket.emit("error", { message: errorMessage });
     }
   });
@@ -55,6 +56,7 @@ export const roomSocket = (io: Server, socket: AuthenticatedSocket): void => {
       }
     } catch (error) {
       const errorMessage = error instanceof Error ? error.message : "Failed to join room";
+      console.error(`[roomSocket] Error joining room:`, error);
       socket.emit("error", { message: errorMessage });
     }
   });
@@ -75,6 +77,7 @@ export const roomSocket = (io: Server, socket: AuthenticatedSocket): void => {
       }
     } catch (error) {
       const errorMessage = error instanceof Error ? error.message : "Failed to leave room";
+      console.error(`[roomSocket] Error leaving room:`, error);
       socket.emit("error", { message: errorMessage });
     }
   });
@@ -133,6 +136,7 @@ export const roomSocket = (io: Server, socket: AuthenticatedSocket): void => {
       io.to(roomCode).emit("game_started", gameState);
     } catch (error) {
       const errorMessage = error instanceof Error ? error.message : "Failed to start game";
+      console.error(`[roomSocket] Error starting game:`, error);
       socket.emit("error", { message: errorMessage });
     }
   });
@@ -155,6 +159,7 @@ export const roomSocket = (io: Server, socket: AuthenticatedSocket): void => {
       }
     } catch (error) {
       const errorMessage = error instanceof Error ? error.message : "Failed to advance turn";
+      console.error(`[roomSocket] Error advancing turn:`, error);
       socket.emit("error", { message: errorMessage });
     }
   });

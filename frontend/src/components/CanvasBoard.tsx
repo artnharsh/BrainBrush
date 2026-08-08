@@ -2,7 +2,6 @@
 import { useEffect, useRef, useMemo, useState } from "react";
 import { useGameStore } from "../store/useGameStore";
 import { drawLine } from "../utils/drawUtils";
-import { throttle } from "../utils/throttle";
 import WordSelectionModal from "./WordSelectionModal";
 import { socket } from "../socketClient";
 
@@ -110,8 +109,8 @@ export default function CanvasBoard() {
 
   // --- SOCKET LISTENERS (LOCKED IN) ---
   useEffect(() => {
-    const onDrawLine = (segment: any) => {
-      segmentsRef.current.push(segment);
+    const onDrawLineBatch = (segments: any[]) => {
+      segmentsRef.current.push(...segments);
       redrawCanvas();
     };
 
@@ -135,14 +134,14 @@ export default function CanvasBoard() {
       redrawCanvas();
     };
 
-    socket.on("draw_line", onDrawLine);
+    socket.on("draw_line_batch", onDrawLineBatch);
     socket.on("erase_stroke", onEraseStroke);
     socket.on("clear_canvas", onClearCanvas);
     socket.on("send_canvas_snapshot", onSendSnapshot);
     socket.on("receive_canvas_snapshot", onReceiveSnapshot);
 
     return () => {
-      socket.off("draw_line", onDrawLine);
+      socket.off("draw_line_batch", onDrawLineBatch);
       socket.off("erase_stroke", onEraseStroke);
       socket.off("clear_canvas", onClearCanvas);
       socket.off("send_canvas_snapshot", onSendSnapshot);
@@ -154,11 +153,21 @@ export default function CanvasBoard() {
     if (!isMyTurn && roomCode) socket.emit("request_canvas_sync", roomCode);
   }, [isMyTurn, roomCode]);
 
-  // THROTTLED emit - fires max every 16ms (60fps)
+  // BATCHED emit - fires max every 50ms (20fps) to prevent socket flooding
+  const batchedSegments = useRef<any[]>([]);
+  const timeoutId = useRef<any>(null);
+
   const emitDrawLine = useMemo(
-    () => throttle((segment: any) => {
-      socket.emit("draw_line", { roomCode, segment });
-    }, 16),
+    () => (segment: any) => {
+      batchedSegments.current.push(segment);
+      if (!timeoutId.current) {
+        timeoutId.current = setTimeout(() => {
+          socket.emit("draw_line_batch", { roomCode, segments: batchedSegments.current });
+          batchedSegments.current = [];
+          timeoutId.current = null;
+        }, 50);
+      }
+    },
     [roomCode]
   );
 

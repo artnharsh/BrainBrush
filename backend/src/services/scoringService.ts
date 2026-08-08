@@ -4,9 +4,6 @@ import { getGameState } from "./gameService"
 import { getTimeLeft } from "../utils/timer";
 import { GameState } from "../types/gameTypes";
 
-// SAFE MEMORY CACHE: Doesn't touch your GameState types!
-export const guessedCorrectlyCache = new Map<string, Set<string>>();
-
 interface GuessResult {
     isCorrect: boolean;
     message?: string;
@@ -17,6 +14,21 @@ interface GuessResult {
 }
 
 export const processGuess = async(roomCode: string, userId: string, guess: string): Promise<GuessResult> => {
+    // 1. FAST PATH: Fetch only the flat word key first!
+    const word = await redis.get(`room:${roomCode}:word`);
+    
+    // If no word is picked yet, ignore
+    if(!word) {
+        return { isCorrect: false };
+    }
+
+    // If guess is wrong, exit early (O(1) fast path)
+    const isMatch = guess.trim().toLowerCase() === word.toLowerCase();
+    if (!isMatch) {
+        return { isCorrect: false };
+    }
+
+    // 2. SLOW PATH: ONLY if correct, we fetch the heavy GameState JSON to update scores
     const game = await getGameState(roomCode);
 
     // drawer is not allowed to guess the word
@@ -24,44 +36,32 @@ export const processGuess = async(roomCode: string, userId: string, guess: strin
         return { isCorrect: false, message: "Drawer cannot guess!" };
     }
 
-    // if the drawer hasn't picked a word yet, ignore guesses
-    if(!game.word) {
-        return { isCorrect: false };
-    }
-
-    // SPAM PREVENTION: Have they already guessed it?
-    const roomGuessers = guessedCorrectlyCache.get(roomCode) || new Set();
-    if (roomGuessers.has(userId)) {
+    // SPAM PREVENTION: Have they already guessed it? (Using Redis SET)
+    const hasGuessed = await redis.sismember(`room:${roomCode}:guessed`, userId);
+    if (hasGuessed) {
         return { isCorrect: false, alreadyGuessed: true };
     }
 
-    // if guess matches
-    const isMatch = guess.trim().toLowerCase() === game.word.toLowerCase();
+    // THE MATH: Calculate points based on speed
+    const timeLeft = getTimeLeft(roomCode);
+    const points = Math.floor((timeLeft / 60) * 500) || 10; // At least 10 pts
 
-    if(isMatch) {
-        // THE MATH: Calculate points based on speed
-        const timeLeft = getTimeLeft(roomCode);
-        const points = Math.floor((timeLeft / 60) * 500) || 10; // At least 10 pts
+    game.scores[userId] = (game.scores[userId] || 0) + points;
+    game.scores[game.drawer] = (game.scores[game.drawer] || 0) + 50;
 
-        game.scores[userId] = (game.scores[userId] || 0) + points;
-        game.scores[game.drawer] = (game.scores[game.drawer] || 0) + 50;
+    await redis.set(`game:${roomCode}`, JSON.stringify(game));
 
-        await redis.set(`game:${roomCode}`, JSON.stringify(game));
+    // UPDATE REDIS: Mark user as having guessed correctly
+    await redis.sadd(`room:${roomCode}:guessed`, userId);
+    const roomGuessersList = await redis.smembers(`room:${roomCode}:guessed`);
 
-        // UPDATE MEMORY: Mark user as having guessed correctly
-        roomGuessers.add(userId);
-        guessedCorrectlyCache.set(roomCode, roomGuessers);
+    // FAST FORWARD CHECK: Did everyone except the drawer guess it?
+    const allGuessed = roomGuessersList.length >= game.players.length - 1;
 
-        // FAST FORWARD CHECK: Did everyone except the drawer guess it?
-        const allGuessed = roomGuessers.size >= game.players.length - 1;
-
-        return {
-            isCorrect: true,
-            game,
-            allGuessed,
-            correctGuessersArray: Array.from(roomGuessers)
-        };
-    }
-
-    return { isCorrect: false};
+    return {
+        isCorrect: true,
+        game,
+        allGuessed,
+        correctGuessersArray: roomGuessersList
+    };
 };

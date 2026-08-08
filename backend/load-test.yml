@@ -1,0 +1,54 @@
+config:
+  target: "http://localhost:5000"
+  engines:
+    socketio-v3: {} # Supports Socket.io v3/v4 natively
+  phases:
+    - duration: 60
+      arrivalRate: 20       # Ramp up: 20 new users per second
+      rampTo: 50            # Peak arrival rate
+      maxVusers: 1500       # Target: Handle 1000+ users gracefully
+
+scenarios:
+  - name: "Draw & Guess Simulation"
+    engine: socketio-v3
+    flow:
+      # 1. Join a specific load-test room
+      - emit:
+          channel: "join_room"
+          data: "LOADTEST"
+      - think: 1
+
+      # 2. Register Player Name
+      - emit:
+          channel: "register_name"
+          data:
+            id: "{{ $uuid }}"
+            username: "TestBot_{{ $randomNumber(1, 1000) }}"
+      - think: 2
+
+      # 3. Simulate Drawing (Batching at 20fps for 5 seconds = 100 emits)
+      - loop:
+          - emit:
+              channel: "draw_line_batch"
+              data:
+                roomCode: "LOADTEST"
+                segments:
+                  - x0: 0.5
+                    y0: 0.5
+                    x1: 0.6
+                    y1: 0.6
+                    color: "#000000"
+                    width: 5
+                    strokeId: "{{ $uuid }}"
+          - think: 0.05
+        count: 100
+
+      # 4. Simulate Chatting/Guessing
+      - emit:
+          channel: "guess_word"
+          data:
+            roomCode: "LOADTEST"
+            guess: "random guess {{ $randomNumber(1, 100) }}"
+      
+      # Stay connected for a bit to maintain concurrency
+      - think: 30

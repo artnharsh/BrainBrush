@@ -17,8 +17,10 @@ export const gameSocket = (io: Server, socket: AuthenticatedSocket): void => {
         const validName = data.username && data.username !== "Player" ? data.username : `Guest-${data.id.slice(-4)}`;
         temporaryNames.set(data.id, validName);
 
-        // Convert the Map to a normal Object so we can send it over WebSockets
-        io.emit("name_dict_update", Object.fromEntries(temporaryNames));
+        // Convert the Map to a normal Object so we can send it to the new user
+        socket.emit("name_dict_update", Object.fromEntries(temporaryNames));
+        // Broadcast only the single new name to everyone else (O(1) payload)
+        socket.broadcast.emit("player_name_updated", { id: data.id, name: validName });
     });
 
     // Drawer selects a word
@@ -40,6 +42,7 @@ export const gameSocket = (io: Server, socket: AuthenticatedSocket): void => {
 
         } catch (error) {
             const errorMessage = error instanceof Error ? error.message : "Unknown error";
+            console.error(`[gameSocket] Error choosing word:`, error);
             socket.emit("error", { message: `Error choosing word: ${errorMessage}` });
         }
     });
@@ -102,6 +105,7 @@ export const gameSocket = (io: Server, socket: AuthenticatedSocket): void => {
             }
         } catch (error) {
             const errorMessage = error instanceof Error ? error.message : "Unknown error";
+            console.error(`[gameSocket] Error processing guess:`, error);
             socket.emit("error", { message: `Error processing guess: ${errorMessage}` });
         }
     });
@@ -114,5 +118,13 @@ export const gameSocket = (io: Server, socket: AuthenticatedSocket): void => {
     // Drawer replies with the canvas state, forward to new player
     socket.on("deliver_canvas_snapshot", (data: CanvasSnapshotPayload): void => {
         io.to(data.targetSocketId).emit("receive_canvas_snapshot", { segments: data.segments });
+    });
+
+    // Clean up temporary names on disconnect to prevent memory leaks
+    socket.on("disconnect", () => {
+        if (temporaryNames.has(socket.id)) {
+            temporaryNames.delete(socket.id);
+            // No need to broadcast deletions to save bandwidth, UI falls back to ID gracefully
+        }
     });
 };

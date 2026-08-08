@@ -54,6 +54,7 @@ export const startGame = async (roomCode: string, players: string[], settings?: 
     `game:${roomCode}`,
     JSON.stringify(gameState)
   );
+  await redis.set(`room:${roomCode}:word`, ""); // Flat key for O(1) guess checks
 
   const verify = await redis.get(`game:${roomCode}`);
   console.log(`[REDIS VERIFY] Did game save?`, verify ? "YES ✅" : "NO ❌");
@@ -88,6 +89,7 @@ export const updateWord = async (roomCode: string, word: string): Promise<GameSt
   game.word = word;
 
   await redis.set(`game:${roomCode}`, JSON.stringify(game));
+  await redis.set(`room:${roomCode}:word`, word); // Update flat key
   return game;
 };
 
@@ -140,6 +142,10 @@ export const nextTurn = async (roomCode: string): Promise<{ game: GameState; isG
   }
 
   await redis.set(`game:${roomCode}`, JSON.stringify(game));
+  if (!isGameOver) {
+    await redis.set(`room:${roomCode}:word`, "");
+    await redis.del(`room:${roomCode}:guessed`); // Clear the guessed cache for the new round
+  }
 
   return { game, isGameOver };
 };
@@ -161,7 +167,12 @@ export const handlePlayerLeave = async(roomCode: string, userId: string): Promis
 
   //2. if less than 2 players, game can't continue
   if(game.players.length < 2) {
-    await redis.del(`game:${roomCode}`); 
+    await redis.del(
+      `game:${roomCode}`,
+      `room:${roomCode}:word`,
+      `room:${roomCode}:guessed`,
+      `room:${roomCode}:canvas`
+    ); 
     return { shouldEndGame: true, wasDrawer: false};
   }
 
@@ -228,6 +239,11 @@ export const endGame = async(roomCode: string, finalGameState: GameState): Promi
     console.error("Failed to save the game history to MongoDB: ", error);
   }
 
-  await redis.del(`game:${roomCode}`);
+  await redis.del(
+    `game:${roomCode}`,
+    `room:${roomCode}:word`,
+    `room:${roomCode}:guessed`,
+    `room:${roomCode}:canvas`
+  );
   return { winner: userMap[winnerId] || "Unknown", maxScore };
 };

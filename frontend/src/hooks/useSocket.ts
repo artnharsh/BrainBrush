@@ -9,6 +9,7 @@ import type {
   TurnUpdatedEvent,
   WordChosenEvent,
   NameDictUpdateEvent,
+  PlayerNameUpdatedEvent,
   CorrectGuessersUpdateEvent,
   SocketErrorEvent
 } from "../types/socketTypes";
@@ -123,6 +124,11 @@ export const useSocket = () => {
       useGameStore.getState().syncGameState({ playerNames: dict });
     };
 
+    const onPlayerNameUpdated = (data: PlayerNameUpdatedEvent): void => {
+      const currentNames = useGameStore.getState().playerNames || {};
+      useGameStore.getState().syncGameState({ playerNames: { ...currentNames, [data.id]: data.name } });
+    };
+
     const onCorrectGuessersUpdate = (data: CorrectGuessersUpdateEvent): void => {
       useGameStore.getState().syncGameState({ correctGuessers: data.guessers });
     };
@@ -140,6 +146,7 @@ export const useSocket = () => {
     socket.on("error", onError);
     socket.on("correct_guessers_update", onCorrectGuessersUpdate);
     socket.on("name_dict_update", onNameDictUpdate);
+    socket.on("player_name_updated", onPlayerNameUpdated);
 
     // Clean up Listeners
     return () => {
@@ -155,6 +162,7 @@ export const useSocket = () => {
       socket.off("error", onError);
       socket.off("correct_guessers_update", onCorrectGuessersUpdate);
       socket.off("name_dict_update", onNameDictUpdate);
+      socket.off("player_name_updated", onPlayerNameUpdated);
     };
   }, [
     isAuthenticated, isConnected, user, setRoom, updatePlayers,
