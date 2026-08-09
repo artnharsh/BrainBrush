@@ -144,7 +144,7 @@ export const nextTurn = async (roomCode: string): Promise<{ game: GameState; isG
   await redis.set(`game:${roomCode}`, JSON.stringify(game));
   if (!isGameOver) {
     await redis.set(`room:${roomCode}:word`, "");
-    await redis.del(`room:${roomCode}:guessed`); // Clear the guessed cache for the new round
+    await redis.del(`room:${roomCode}:guessed`, `room:${roomCode}:canvas`); // Clear caches for new round
   }
 
   return { game, isGameOver };

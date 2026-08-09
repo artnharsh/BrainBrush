@@ -57,8 +57,10 @@ export const useSocket = () => {
   // EFFECT 2: REGISTER NAME WHEN CONNECTED
   useEffect(() => {
     if (isConnected && user) {
-      // Fix 1: removed user.name and user.email — not on User type
+      // Use existing name from store if they set one in the lobby, otherwise fallback to auth name
+      const existingName = useGameStore.getState().playerNames[user.id];
       const realName =
+        existingName ||
         user.username ||
         `Guest-${user.id.slice(-4)}`;
 

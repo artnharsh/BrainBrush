@@ -1,6 +1,8 @@
 import GameHistory from "../models/GameHistory";
 import mongoose from "mongoose";
 
+import redis from "../config/redis";
+
 export interface PlayerGameRecord {
   id: string;
   roomCode: string;
@@ -29,13 +31,17 @@ export const getPlayerGameHistory = async (
   limit: number = 20
 ): Promise<PlayerGameRecord[]> => {
   try {
+    const cacheKey = `history:${userId}:${limit}`;
+    const cached = await redis.get(cacheKey);
+    if (cached) return JSON.parse(cached);
+
     const games = await GameHistory.find({ players: userId })
       .select("roomCode players scores winner winnerId rounds createdAt")
       .sort({ createdAt: -1 })
       .limit(limit)
       .lean();
 
-    return games.map((game: any) => {
+    const result = games.map((game: any) => {
       let playerScore = 0;
       let position = 1;
 
@@ -70,6 +76,9 @@ export const getPlayerGameHistory = async (
         }))
       };
     });
+
+    await redis.setex(cacheKey, 60 * 5, JSON.stringify(result)); // Cache for 5 mins
+    return result;
   } catch (error) {
     throw new Error("Failed to fetch history");
   }
@@ -82,6 +91,10 @@ export const getPlayerGameHistory = async (
  */
 export const getPlayerStats = async (userId: string) => {
   try {
+    const cacheKey = `stats:${userId}`;
+    const cached = await redis.get(cacheKey);
+    if (cached) return JSON.parse(cached);
+
     const userObjectId = new mongoose.Types.ObjectId(userId);
 
     const result = await GameHistory.aggregate([
@@ -135,7 +148,7 @@ export const getPlayerStats = async (userId: string) => {
       totalScore: 0
     };
 
-    return {
+    const resultObj = {
       totalGames: stats.totalGames,
       wins: stats.wins,
       winRate:
@@ -148,6 +161,9 @@ export const getPlayerStats = async (userId: string) => {
           : "0",
       totalScore: stats.totalScore
     };
+
+    await redis.setex(cacheKey, 60 * 5, JSON.stringify(resultObj)); // Cache for 5 mins
+    return resultObj;
   } catch (error) {
     throw new Error("Failed to fetch stats");
   }

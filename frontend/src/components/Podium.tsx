@@ -1,11 +1,23 @@
-// src/components/Podium.tsx
+import { useEffect, useState } from "react";
 import { useGameStore } from "../store/useGameStore";
 
 export default function Podium() {
+  const [timeLeft, setTimeLeft] = useState(12);
   const players = useGameStore((state) => state.players);
   const scores = useGameStore((state) => state.scores);
   const playerNames = useGameStore((state) => state.playerNames) || {};
   const resetRoom = useGameStore((state) => state.resetRoom);
+
+  useEffect(() => {
+    if (timeLeft <= 0) {
+      resetRoom();
+      return;
+    }
+    const timer = setInterval(() => {
+      setTimeLeft(prev => prev - 1);
+    }, 1000);
+    return () => clearInterval(timer);
+  }, [timeLeft, resetRoom]);
 
   // Sort players by score
   const sortedPlayers = [...players].sort((a, b) => (scores[b] || 0) - (scores[a] || 0));
@@ -79,7 +91,7 @@ export default function Podium() {
         onClick={resetRoom}
         className="mt-8 md:mt-12 bg-blue-400 hover:bg-blue-500 text-black border-4 border-black px-6 md:px-8 py-3 md:py-4 rounded-xl font-black text-xl md:text-2xl uppercase tracking-widest shadow-[6px_6px_0px_rgba(0,0,0,1)] active:translate-y-2 active:shadow-none transition-all"
       >
-        Return to Lobby
+        Return to Lobby ({timeLeft}s)
       </button>
 
     </div>
