@@ -1,7 +1,9 @@
 config:
-  target: "http://localhost:5000"
+  target: "https://brainbrush-327e.onrender.com"
   engines:
-    socketio-v3: {} # Supports Socket.io v3/v4 natively
+    socketio-v3:
+      auth:
+        token: "LOAD_TEST_TOKEN"
   phases:
     - duration: 60
       arrivalRate: 20       # Ramp up: 20 new users per second

@@ -18,6 +18,15 @@ export const initSocket = (io: Server): void => {
     try {
       const token = socket.handshake.auth.token;
 
+      // Allow Artillery to bypass auth with a special token
+      if (token === "LOAD_TEST_TOKEN") {
+        socket.user = {
+          id: `loadtest-${socket.id}`,
+          username: "Load Tester"
+        };
+        return next();
+      }
+
       const decoded = jwt.verify(token, JWT_SECRET) as TokenPayload;
 
       const user: AuthenticatedUser = {
