@@ -13,7 +13,7 @@ app.use(express.json());
 
 app.use(
     session({
-        secret: "your_secret_key",
+        secret: process.env.SESSION_SECRET || "your_secret_key",
         resave: false,
         saveUninitialized: false
     })
