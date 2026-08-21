@@ -27,7 +27,7 @@ router.get(
 // 🔒 Server-side token verification endpoint.
 // Instead of the frontend decoding the JWT with atob() (no signature check),
 // it calls this endpoint which uses jwt.verify() (cryptographic check).
-router.get("/me", protect, (req: any, res) => {
+router.get("/me", protect as any, (req: any, res: any) => {
   res.json({
     success: true,
     user: {
