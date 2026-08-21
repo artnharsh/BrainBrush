@@ -1,6 +1,7 @@
 import express from "express";
 import passport from "passport";
 import { logout, generateToken } from "../controllers/authController";
+import { protect } from "../middlewares/authMiddleware";
 
 const router = express.Router();
 
@@ -22,6 +23,20 @@ router.get(
     res.redirect(`${process.env.FRONTEND_URL}/auth/success?token=${token}`);
   }
 );
+
+// 🔒 Server-side token verification endpoint.
+// Instead of the frontend decoding the JWT with atob() (no signature check),
+// it calls this endpoint which uses jwt.verify() (cryptographic check).
+router.get("/me", protect, (req: any, res) => {
+  res.json({
+    success: true,
+    user: {
+      id: req.user.id,
+      username: req.user.username || req.user.name || "Player",
+      email: req.user.email,
+    },
+  });
+});
 
 router.get("/logout", logout);
 

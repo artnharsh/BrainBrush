@@ -7,11 +7,11 @@ const AuthSuccessPage = () => {
   const navigate = useNavigate();
   const setAuth = useGameStore((state) => state.setAuth);
   
-  // 1. ADD THIS: A flag to track if we've already processed the login
+  // A flag to track if we've already processed the login
   const hasProcessed = useRef(false);
 
   useEffect(() => {
-    // 2. ADD THIS: If we already ran this, stop immediately.
+    // If we already ran this, stop immediately.
     if (hasProcessed.current) return;
     hasProcessed.current = true;
 
@@ -23,33 +23,34 @@ const AuthSuccessPage = () => {
       return;
     }
 
-    try {
-      // Decode the JWT
-      const base64Url = token.split(".")[1];
-      const base64 = base64Url.replace(/-/g, "+").replace(/_/g, "/");
-      const jsonPayload = decodeURIComponent(
-        atob(base64)
-          .split("")
-          .map((c) => "%" + ("00" + c.charCodeAt(0).toString(16)).slice(-2))
-          .join("")
-      );
+    // 🔒 FIX: Verify the token SERVER-SIDE instead of decoding with atob().
+    // This calls GET /auth/me which uses jwt.verify() (cryptographic signature check).
+    const backendUrl = import.meta.env.VITE_API_BASE_URL || "http://localhost:5000";
 
-      const payload = JSON.parse(jsonPayload);
-      
-      const user = {
-        id: payload.id,
-        username: "Player", 
-      };
+    fetch(`${backendUrl}/auth/me`, {
+      headers: { Authorization: `Bearer ${token}` },
+    })
+      .then((res) => {
+        if (!res.ok) throw new Error("Token verification failed");
+        return res.json();
+      })
+      .then((data) => {
+        const user = {
+          id: data.user.id,
+          username: data.user.username || "Player",
+        };
 
-      // Save to global state and local storage
-      setAuth(user, token);
+        // Save to global state and local storage
+        setAuth(user, token);
 
-      // Safely navigate to the lobby
-      navigate("/lobby", { replace: true });
-    } catch (err) {
-      console.error("🔴 CRITICAL ERROR: Failed to parse the token!", err);
-      navigate("/"); 
-    }
+        // Safely navigate to the lobby
+        navigate("/lobby", { replace: true });
+      })
+      .catch((err) => {
+        console.error("🔴 Token verification failed:", err);
+        localStorage.removeItem("token");
+        navigate("/");
+      });
   }, [navigate, setAuth]);
 
   return (

@@ -10,3 +10,9 @@ export const GOOGLE_CLIENT_ID = process.env.GOOGLE_CLIENT_ID as string;
 export const GOOGLE_CLIENT_SECRET = process.env.GOOGLE_CLIENT_SECRET as string;
 
 export const JWT_SECRET = process.env.JWT_SECRET as string;
+
+// 🔒 FIX: Allowed origins for CORS. Comma-separated in .env
+// Example: ALLOWED_ORIGINS=http://localhost:5173,https://brainbrush.com
+export const ALLOWED_ORIGINS = (process.env.ALLOWED_ORIGINS || "http://localhost:5173,http://localhost:80")
+  .split(",")
+  .map((origin) => origin.trim());

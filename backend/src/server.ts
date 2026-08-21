@@ -5,6 +5,7 @@ import app from "./app";
 import connectDB from "./config/db";
 import "./config/redis";
 import { initSocket } from "./sockets";
+import { ALLOWED_ORIGINS } from "./config/env";
 
 dotenv.config();
 
@@ -12,9 +13,11 @@ const PORT = process.env.PORT || 5000;
 
 const server = http.createServer(app);
 
+// 🔒 FIX: Socket.IO uses the same CORS whitelist as Express.
 const io = new Server(server, {
   cors: {
-    origin: "*",
+    origin: ALLOWED_ORIGINS,
+    credentials: true,
   },
 });
 
