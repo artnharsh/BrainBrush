@@ -1,0 +1,42 @@
+# ===========================================================================
+# TERRAFORM VARIABLES FILE — YOUR ACTUAL VALUES GO HERE
+# ===========================================================================
+#
+# 🎓 HOW TO USE THIS FILE:
+#   1. Copy this file:  cp terraform.tfvars.example terraform.tfvars
+#   2. Fill in your values in terraform.tfvars
+#   3. terraform.tfvars is GITIGNORED (it may contain sensitive info)
+#
+# ⚠️ NEVER commit terraform.tfvars to Git if it contains secrets!
+# ===========================================================================
+
+# AWS Region — where your infrastructure lives
+aws_region = "ap-south-1"            # Mumbai. Change to your preferred region.
+
+# Project name — used as prefix for all resource names
+project_name = "brainbrush"
+
+# VPC CIDR — IP range for your private network
+vpc_cidr = "10.0.0.0/16"
+
+# Subnet CIDR — a slice of the VPC for your public resources
+public_subnet_cidr = "10.0.1.0/24"
+
+# Availability Zone — which data center within the region
+availability_zone = "ap-south-1a"
+
+# EC2 Instance Type — choose based on your budget
+instance_type = "t2.medium"          # ~$0.0464/hr ≈ $34/month
+
+# AMI ID — leave empty to auto-detect latest Ubuntu 22.04
+ami_id = ""
+
+# 🔑 AWS Key Pair — REQUIRED! Create one in AWS Console first:
+#   1. Go to EC2 → Key Pairs → Create Key Pair
+#   2. Name it "brainbrush-key" (or whatever you want)
+#   3. Download the .pem file
+#   4. Put the name here and the file path below
+key_pair_name = "brainbrush-key"
+
+# Path to the .pem file you downloaded
+private_key_path = "/home/xcaliber/Projects/brainbrush-key.pem"

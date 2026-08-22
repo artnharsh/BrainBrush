@@ -1,1 +1,45 @@
 system_design/
+
+# ===========================================================================
+# TERRAFORM
+# ===========================================================================
+# State files — contain ALL your infrastructure details (IPs, IDs, etc.)
+# NEVER commit these — they may contain sensitive info and cause merge conflicts
+terraform/*.tfstate
+terraform/*.tfstate.backup
+terraform/.terraform/
+terraform/.terraform.lock.hcl
+terraform/tfplan
+
+# Variable values — may contain sensitive configuration
+terraform/terraform.tfvars
+
+# ===========================================================================
+# SSH KEYS — Used for EC2 access
+# ===========================================================================
+*.pem
+*.key
+
+# ===========================================================================
+# ANSIBLE
+# ===========================================================================
+# Inventory contains server IPs — changes per environment
+ansible/inventory.ini
+
+# Ansible retry files (generated on failure)
+*.retry
+
+# ===========================================================================
+# ENVIRONMENT FILES
+# ===========================================================================
+.env
+*.env.local
+
+# ===========================================================================
+# IDE & OS
+# ===========================================================================
+.vscode/
+.idea/
+.DS_Store
+Thumbs.db
+devops/
