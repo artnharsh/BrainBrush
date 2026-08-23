@@ -76,9 +76,8 @@ export const useSocket = () => {
       if (user) setRoom(roomCode, [user.id], user.id);
     };
 
-    const onPlayerList = (players: string[]): void => {
-      const assumedHostId = players[0];
-      updatePlayers(players, assumedHostId);
+    const onPlayerList = (data: { players: string[]; hostId: string }): void => {
+      updatePlayers(data.players, data.hostId);
     };
 
     const onGameStarted = (gameState: GameStartedEvent): void => {

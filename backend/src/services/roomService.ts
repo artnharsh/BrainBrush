@@ -46,9 +46,10 @@ export const joinRoomRedis = async (roomCode: string, userId: string): Promise<R
   await redis.sadd(`room:${roomCode}:players`, userId);
 
   const players = await redis.smembers(`room:${roomCode}:players`);
+  const host = await redis.get(`room:${roomCode}:host`);
 
   // Return as an object to match the socket file expectation
-  return { players };
+  return { players, host };
 };
 
 export const leaveRoomRedis = async (roomCode: string, userId: string): Promise<RoomInfo> => {

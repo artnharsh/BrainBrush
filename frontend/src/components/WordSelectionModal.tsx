@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useState, useRef } from "react";
 import { useGameStore } from "../store/useGameStore";
 import { socket } from "../socketClient";
 
@@ -12,12 +12,9 @@ export default function WordSelectionModal() {
   const isMyTurn = user?.id === currentDrawer;
   const [timeLeft, setTimeLeft] = useState(15);
 
-  // Reset timer to 15 when a new turn starts (word goes back to null/empty)
-  useEffect(() => {
-    if (!word) {
-      setTimeLeft(15);
-    }
-  }, [word, currentDrawer]);
+  // Track drawer changes with a ref so we can detect turn transitions
+  // without the stale-closure problem that plagued the two-effect approach
+  const lastDrawerRef = useRef(currentDrawer);
 
   const handleChooseWord = (selectedWord: string) => {
     socket.emit("choose_word", { roomCode, word: selectedWord });
@@ -25,22 +22,32 @@ export default function WordSelectionModal() {
   };
 
   useEffect(() => {
-    if (word) return; // Stop if a word is already chosen
-    
+    // === TURN CHANGE DETECTION ===
+    // When the drawer changes, it's a new turn. Reset timer and bail out
+    // so the auto-pick logic below can NEVER fire on stale timeLeft=0.
+    if (lastDrawerRef.current !== currentDrawer) {
+      lastDrawerRef.current = currentDrawer;
+      setTimeLeft(15);
+      return; // Critical: skip all timer/auto-pick logic this cycle
+    }
+
+    if (word) return; // Word already chosen, nothing to do
+
+    // === AUTO-PICK LOGIC ===
     if (timeLeft <= 0) {
       if (isMyTurn && wordChoices && wordChoices.length > 0) {
-        // Auto-pick the first word
         handleChooseWord(wordChoices[0]);
       }
       return;
     }
-    
+
+    // === COUNTDOWN ===
     const timer = setInterval(() => {
       setTimeLeft(prev => prev - 1);
     }, 1000);
-    
+
     return () => clearInterval(timer);
-  }, [timeLeft, isMyTurn, wordChoices, word]);
+  }, [timeLeft, isMyTurn, wordChoices, word, currentDrawer]);
 
   if (word) return null;
 

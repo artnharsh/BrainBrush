@@ -16,9 +16,10 @@ export const roomSocket = (io: Server, socket: AuthenticatedSocket): void => {
         socket.emit("error", error);
         return;
       }
-      const { roomCode } = await createRoomRedis(userId);
+      const { roomCode, players } = await createRoomRedis(userId);
       socket.join(roomCode);
       socket.emit("room_created", { roomCode });
+      io.to(roomCode).emit("player_list", { players, hostId: userId });
     } catch (error) {
       const errorMessage = error instanceof Error ? error.message : "Failed to create room";
       console.error(`[roomSocket] Error creating room:`, error);
@@ -38,7 +39,7 @@ export const roomSocket = (io: Server, socket: AuthenticatedSocket): void => {
 
       const room = await joinRoomRedis(roomCode, userId);
       socket.join(roomCode);
-      io.to(roomCode).emit("player_list", room.players);
+      io.to(roomCode).emit("player_list", { players: room.players, hostId: room.host });
 
       // THE RECONNECT FIX: Is there an active game?
       const gameStr = await redis.get(`game:${roomCode}`);
@@ -73,7 +74,7 @@ export const roomSocket = (io: Server, socket: AuthenticatedSocket): void => {
       const room = await leaveRoomRedis(roomCode, userId);
       socket.leave(roomCode);
       if (room?.players) {
-        io.to(roomCode).emit("player_list", room.players);
+        io.to(roomCode).emit("player_list", { players: room.players, hostId: room.host });
       }
     } catch (error) {
       const errorMessage = error instanceof Error ? error.message : "Failed to leave room";
@@ -176,7 +177,7 @@ export const roomSocket = (io: Server, socket: AuthenticatedSocket): void => {
           // Remove from the lobby
           const room = await leaveRoomRedis(roomCode, userId);
           if (room?.players) {
-            io.to(roomCode).emit("player_list", room.players);
+            io.to(roomCode).emit("player_list", { players: room.players, hostId: room.host });
           }
 
           // Handle game logic if a game is running
