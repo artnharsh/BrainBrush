@@ -4,7 +4,6 @@ import { RouterProvider } from "react-router-dom";
 import { router } from "./routes"; // <-- IMPORTANT: Named import
 import { useGameStore } from "./store/useGameStore";
 import { useErrorHandler } from "./hooks/useErrorHandler";
-import SessionConflictModal from "./components/SessionConflictModal";
 
 function App() {
   const setAuth = useGameStore((state) => state.setAuth);
@@ -46,12 +45,7 @@ function App() {
   }, [handleError]);
 
   // Provide the modern v6 router to the app
-  return (
-    <>
-      <RouterProvider router={router} />
-      <SessionConflictModal />
-    </>
-  );
+  return <RouterProvider router={router} />;
 }
 
 export default App;
