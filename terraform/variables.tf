@@ -77,12 +77,9 @@ variable "availability_zone" {
 variable "instance_type" {
   description = "EC2 instance type (CPU + RAM combo)"
   type        = string
-  default     = "t2.medium"
+  default     = "t3.micro"
   # 🎓 INSTANCE TYPE CHEAT SHEET:
-  #   t2.micro  = 1 vCPU, 1GB RAM  (free tier eligible, too small for our app)
-  #   t2.small  = 1 vCPU, 2GB RAM  (borderline)
-  #   t2.medium = 2 vCPU, 4GB RAM  (good for Docker + our app) ✅
-  #   t2.large  = 2 vCPU, 8GB RAM  (overkill for learning)
+  #   t3.micro  = 2 vCPU, 1GB RAM  (Free Tier eligible in your account) ✅
 }
 
 variable "ami_id" {
