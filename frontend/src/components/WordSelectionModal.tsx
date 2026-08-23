@@ -12,6 +12,13 @@ export default function WordSelectionModal() {
   const isMyTurn = user?.id === currentDrawer;
   const [timeLeft, setTimeLeft] = useState(15);
 
+  // Reset timer to 15 when a new turn starts (word goes back to null/empty)
+  useEffect(() => {
+    if (!word) {
+      setTimeLeft(15);
+    }
+  }, [word, currentDrawer]);
+
   const handleChooseWord = (selectedWord: string) => {
     socket.emit("choose_word", { roomCode, word: selectedWord });
     useGameStore.getState().syncGameState({ word: selectedWord });
