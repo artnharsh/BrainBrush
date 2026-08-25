@@ -13,8 +13,8 @@ RUN npm install
 COPY . .
 
 # 🚨 NEW: Catch the argument from docker-compose
-ARG VITE_BACKEND_URL
-ENV VITE_BACKEND_URL=$VITE_BACKEND_URL
+ARG VITE_API_BASE_URL
+ENV VITE_API_BASE_URL=$VITE_API_BASE_URL
 
 # Compile the React app (Vite outputs to a 'dist' folder)
 RUN npm run build
