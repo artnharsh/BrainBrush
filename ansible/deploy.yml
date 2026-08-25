@@ -1,32 +1,3 @@
-# ===========================================================================
-# ANSIBLE PLAYBOOK: APPLICATION DEPLOYMENT
-# ===========================================================================
-#
-# 🎓 WHY A SEPARATE DEPLOY PLAYBOOK?
-# The provisioning playbook (playbook.yml) sets up the SERVER.
-# This deploy playbook deploys the APPLICATION.
-#
-# Provisioning = run once (or when rebuilding the server)
-# Deployment   = run every time you release a new version
-#
-# This separation is a DevOps best practice because:
-#   1. Provisioning is slow (installing packages) — you don't want to do it every deploy
-#   2. Deployment is fast (pull new images, restart) — you do this often
-#   3. Different permissions: provisioning needs root, deployment might not
-#
-# 🎓 HOW JENKINS CALLS THIS:
-#   ansible-playbook -i inventory.ini deploy.yml \
-#     --extra-vars "docker_image_tag=latest \
-#                   mongo_uri=mongodb+srv://... \
-#                   redis_url=redis://... \
-#                   google_client_id=xxx \
-#                   google_client_secret=xxx \
-#                   jwt_secret=xxx \
-#                   frontend_url=http://<server_ip>"
-#
-# The --extra-vars pass secrets from Jenkins credentials into Ansible.
-# ===========================================================================
-
 ---
 - name: Deploy BrainBrush Application
   hosts: servers
@@ -35,16 +6,10 @@
   vars:
     app_dir: /home/ubuntu/brainbrush
     docker_hub_user: caliber001
-    # 🎓 "vars" defines variables scoped to this playbook.
-    # Variables passed via --extra-vars OVERRIDE these defaults.
 
-    # Defaults for extra-vars (overridden by Jenkins)
     docker_image_tag: "latest"
 
   tasks:
-    # -----------------------------------------------------------------
-    # STEP 1: Copy Docker Compose file to the server
-    # -----------------------------------------------------------------
     - name: Copy production Docker Compose file to server
       ansible.builtin.template:
         src: templates/docker-compose.prod.yml.j2
@@ -52,14 +17,7 @@
         owner: ubuntu
         group: ubuntu
         mode: "0644"
-      # 🎓 TEMPLATE vs COPY:
-      # - "copy" sends a file AS-IS to the server
-      # - "template" processes Jinja2 {{ variables }} BEFORE sending
-      # We use template because docker-compose.yml needs the image tag injected.
 
-    # -----------------------------------------------------------------
-    # STEP 2: Create the .env file with secrets
-    # -----------------------------------------------------------------
     - name: Create .env file from template
       ansible.builtin.template:
         src: templates/.env.j2
@@ -67,37 +25,19 @@
         owner: ubuntu
         group: ubuntu
         mode: "0600"     # 🔒 Read/write only for owner — secrets should be protected!
-      # 🎓 MODE "0600" EXPLAINED:
-      #   First digit (0): special permissions (none)
-      #   Second digit (6): owner can read (4) + write (2) = 6
-      #   Third digit (0): group has no access
-      #   Fourth digit (0): others have no access
-      # Compare with "0644" = owner: rw, group: r, others: r
 
-    # -----------------------------------------------------------------
-    # STEP 3: Log in to Docker Hub (to pull private images if needed)
-    # -----------------------------------------------------------------
     - name: Log in to Docker Hub
       ansible.builtin.command:
         cmd: "docker login -u {{ docker_hub_user }} -p {{ docker_hub_password }}"
       no_log: true        # 🔒 Don't show this command's output (it contains the password!)
       changed_when: true
       when: docker_hub_password is defined
-      # 🎓 "when" is a conditional — this task ONLY runs if docker_hub_password was provided.
-      # "no_log: true" prevents Ansible from printing the password to the console.
-      # If your images are public on Docker Hub, this step is optional.
 
-    # -----------------------------------------------------------------
-    # STEP 4: Pull the latest Docker images
-    # -----------------------------------------------------------------
     - name: Pull latest backend image
       ansible.builtin.command:
         cmd: "docker pull {{ docker_hub_user }}/brainbrush-backend:{{ docker_image_tag }}"
       register: pull_backend
       changed_when: "'Downloaded newer image' in pull_backend.stdout or 'Pull complete' in pull_backend.stdout"
-      # 🎓 "register" captures the output so we can check if anything actually changed.
-      # "changed_when" tells Ansible whether this task made a change or not.
-      # If the image was already up-to-date, it reports "Image is up to date" — no change.
 
     - name: Pull latest frontend image
       ansible.builtin.command:
@@ -105,27 +45,17 @@
       register: pull_frontend
       changed_when: "'Downloaded newer image' in pull_frontend.stdout or 'Pull complete' in pull_frontend.stdout"
 
-    # -----------------------------------------------------------------
-    # STEP 5: Start the application
-    # -----------------------------------------------------------------
     - name: Stop existing containers (if running)
       ansible.builtin.command:
         cmd: docker compose down
         chdir: "{{ app_dir }}"
       ignore_errors: true
-      # 🎓 "ignore_errors: true" means don't fail if containers aren't running yet.
-      # On first deploy, there's nothing to stop — this prevents a false failure.
 
     - name: Start application with Docker Compose
       ansible.builtin.command:
         cmd: docker compose up -d
         chdir: "{{ app_dir }}"
-      # 🎓 "chdir" changes to the app directory before running the command.
-      # "-d" runs containers in detached mode (background).
 
-    # -----------------------------------------------------------------
-    # STEP 6: Health check
-    # -----------------------------------------------------------------
     - name: Wait for backend to be ready
       ansible.builtin.uri:
         url: "http://localhost:5000"
@@ -136,10 +66,6 @@
       delay: 5                     # Wait 5 seconds between retries
       until: health_check.status is defined
       ignore_errors: true
-      # 🎓 HEALTH CHECK PATTERN:
-      # After starting containers, they take a few seconds to boot up.
-      # We retry up to 10 times (50 seconds total) until the backend responds.
-      # This prevents the pipeline from reporting "success" before the app is actually ready.
 
     - name: Print deployment status
       ansible.builtin.debug:
@@ -149,13 +75,7 @@
           🔌 Backend:  http://{{ ansible_host }}:5000
           📦 Images:   {{ docker_hub_user }}/brainbrush-*:{{ docker_image_tag }}
 
-    # -----------------------------------------------------------------
-    # STEP 7: Clean up old Docker images (saves disk space)
-    # -----------------------------------------------------------------
     - name: Remove unused Docker images
       ansible.builtin.command:
         cmd: docker image prune -af
       changed_when: true
-      # 🎓 Over time, old Docker images pile up and eat disk space.
-      # "docker image prune -af" removes all unused images.
-      # "-a" = all unused (not just dangling), "-f" = force (no confirmation prompt)

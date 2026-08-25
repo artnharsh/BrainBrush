@@ -1,64 +1,20 @@
-# ===========================================================================
-# ANSIBLE PLAYBOOK: SERVER PROVISIONING
-# ===========================================================================
-#
-# 🎓 WHAT IS A PLAYBOOK?
-# A playbook is a YAML file that describes the DESIRED STATE of a server.
-# It's a list of "tasks" that Ansible executes in order on the target server.
-#
-# 🎓 KEY CONCEPT: IDEMPOTENCY
-# Ansible tasks are IDEMPOTENT — safe to run multiple times.
-# If Docker is already installed, the "Install Docker" task won't reinstall it.
-# This is different from a bash script, where running `apt install` twice
-# might cause issues. Idempotency = you can re-run without fear.
-#
-# 🎓 WHEN TO RUN THIS PLAYBOOK:
-# Run this ONCE when you first set up the server (or if you rebuild it).
-#   ansible-playbook -i inventory.ini playbook.yml
-#
-# 🎓 WHAT DOES THIS PLAYBOOK DO?
-#   1. Updates the system packages
-#   2. Installs Docker Engine + Docker Compose plugin
-#   3. Adds the 'ubuntu' user to the 'docker' group (so we don't need sudo)
-#   4. Creates the app directory
-# ===========================================================================
-
 ---
-# The "---" marks the start of a YAML document. It's optional but good practice.
-
 - name: Provision BrainBrush Server
-  # 🎓 "name" is a human-readable description shown during execution.
-  # You'll see: PLAY [Provision BrainBrush Server] in the terminal.
 
   hosts: servers
-  # 🎓 "hosts" references a group from inventory.ini.
-  # "servers" means: run these tasks on every server in the [servers] group.
 
   become: true
-  # 🎓 "become: true" = run tasks as root (like using sudo).
-  # Docker installation needs root privileges.
 
   tasks:
-    # -----------------------------------------------------------------
-    # STEP 1: Update the system
-    # -----------------------------------------------------------------
     - name: Update apt package cache
       ansible.builtin.apt:
         update_cache: true
         cache_valid_time: 3600    # Don't re-update if cache is less than 1 hour old
-      # 🎓 This is like running: sudo apt update
-      # The "apt" module is Ansible's way of managing Debian/Ubuntu packages.
-      # cache_valid_time avoids redundant updates — another idempotency trick!
 
     - name: Upgrade all packages to latest version
       ansible.builtin.apt:
         upgrade: dist
-      # 🎓 This is like running: sudo apt dist-upgrade -y
-      # Ensures your server has the latest security patches.
 
-    # -----------------------------------------------------------------
-    # STEP 2: Install prerequisite packages
-    # -----------------------------------------------------------------
     - name: Install required packages for Docker setup
       ansible.builtin.apt:
         name:
@@ -68,50 +24,30 @@
           - lsb-release           # For detecting Ubuntu version
           - apt-transport-https   # For fetching packages over HTTPS
         state: present
-      # 🎓 "state: present" means "make sure these are installed."
-      # If already installed, Ansible skips them (idempotency!).
-      # Other states: "absent" (uninstall), "latest" (upgrade to newest).
 
-    # -----------------------------------------------------------------
-    # STEP 3: Add Docker's official GPG key and repository
-    # -----------------------------------------------------------------
     - name: Create Docker keyrings directory
       ansible.builtin.file:
         path: /etc/apt/keyrings
         state: directory
         mode: "0755"
-      # 🎓 The "file" module manages files and directories.
-      # state=directory means "make sure this directory exists."
 
     - name: Download Docker's official GPG key
       ansible.builtin.get_url:
         url: https://download.docker.com/linux/ubuntu/gpg
         dest: /etc/apt/keyrings/docker.asc
         mode: "0644"
-      # 🎓 A GPG key verifies that Docker packages are authentic.
-      # Without this, someone could inject malicious packages.
 
     - name: Get system architecture
       ansible.builtin.command: dpkg --print-architecture
       register: arch_result
       changed_when: false
-      # 🎓 "register" saves the command output into a variable (arch_result).
-      # "changed_when: false" tells Ansible this command doesn't change anything.
-      # We need this because the Docker repo URL includes the CPU architecture (amd64/arm64).
 
     - name: Add Docker repository to apt sources
       ansible.builtin.apt_repository:
         repo: "deb [arch={{ arch_result.stdout }} signed-by=/etc/apt/keyrings/docker.asc] https://download.docker.com/linux/ubuntu {{ ansible_distribution_release }} stable"
         state: present
         filename: docker
-      # 🎓 This adds Docker's package repository to your server's package sources.
-      # {{ ansible_distribution_release }} resolves to "jammy" for Ubuntu 22.04.
-      # {{ arch_result.stdout }} resolves to "amd64" for x86_64 machines.
-      # Now `apt install docker-ce` will find the Docker packages.
 
-    # -----------------------------------------------------------------
-    # STEP 4: Install Docker Engine + Compose
-    # -----------------------------------------------------------------
     - name: Install Docker Engine and Docker Compose plugin
       ansible.builtin.apt:
         name:
@@ -122,38 +58,19 @@
           - docker-compose-plugin # Docker Compose V2 (the `docker compose` command)
         state: present
         update_cache: true
-      # 🎓 WHY SO MANY PACKAGES?
-      # Docker is actually multiple components working together:
-      #   - docker-ce = the daemon (background service that runs containers)
-      #   - docker-ce-cli = the CLI you type commands into
-      #   - containerd.io = low-level container runtime
-      #   - docker-compose-plugin = adds `docker compose` (V2) as a Docker subcommand
 
-    # -----------------------------------------------------------------
-    # STEP 5: Configure Docker
-    # -----------------------------------------------------------------
     - name: Start and enable Docker service
       ansible.builtin.systemd:
         name: docker
         state: started
         enabled: true
-      # 🎓 "state: started" = start Docker NOW.
-      # "enabled: true" = start Docker automatically on boot.
-      # The systemd module manages Linux services (like systemctl start/enable).
 
     - name: Add ubuntu user to docker group
       ansible.builtin.user:
         name: ubuntu
         groups: docker
         append: true
-      # 🎓 WHY ADD TO DOCKER GROUP?
-      # By default, Docker commands need `sudo`. Adding the user to the
-      # "docker" group lets them run `docker` without sudo.
-      # This is important for Ansible's deploy playbook to work without sudo.
 
-    # -----------------------------------------------------------------
-    # STEP 6: Create application directory
-    # -----------------------------------------------------------------
     - name: Create app directory
       ansible.builtin.file:
         path: /home/ubuntu/brainbrush
@@ -161,11 +78,7 @@
         owner: ubuntu
         group: ubuntu
         mode: "0755"
-      # 🎓 This is where our Docker Compose files and .env will live on the server.
 
-    # -----------------------------------------------------------------
-    # STEP 7: Verify installation
-    # -----------------------------------------------------------------
     - name: Verify Docker is working
       ansible.builtin.command: docker --version
       register: docker_version
@@ -174,8 +87,6 @@
     - name: Print Docker version
       ansible.builtin.debug:
         msg: "Docker installed successfully: {{ docker_version.stdout }}"
-      # 🎓 The "debug" module prints a message during playbook execution.
-      # Useful for confirming things worked!
 
     - name: Verify Docker Compose is working
       ansible.builtin.command: docker compose version
