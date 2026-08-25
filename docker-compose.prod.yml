@@ -1,27 +1,3 @@
-# ===========================================================================
-# PRODUCTION DOCKER COMPOSE
-# ===========================================================================
-#
-# 🎓 DEV vs PROD COMPOSE — WHAT'S THE DIFFERENCE?
-#
-# docker-compose.yml (dev):
-#   - Uses `build: ./backend` to build images FROM SOURCE CODE
-#   - Good for local development where you change code frequently
-#
-# docker-compose.prod.yml (this file):
-#   - Uses `image: caliber001/brainbrush-backend:latest` (pre-built from Docker Hub)
-#   - Good for production — the image was already tested in CI
-#   - Faster deployment (just pull, don't build)
-#
-# 🎓 WHEN IS THIS FILE USED?
-# This is the LOCAL reference copy. The actual file deployed to the server
-# is generated from ansible/templates/docker-compose.prod.yml.j2
-# (which injects the correct image tag).
-#
-# You can also use this locally to test the production setup:
-#   docker compose -f docker-compose.prod.yml up
-# ===========================================================================
-
 services:
 
   backend:
