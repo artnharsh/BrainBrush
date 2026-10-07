@@ -1,0 +1,123 @@
+---
+# ============================================================
+# Ansible Playbook: Deploy Monitoring Stack
+# ============================================================
+#
+# Deploys Prometheus, Grafana, and Node Exporter to the
+# BrainBrush server using the monitoring Docker Compose file.
+#
+# Usage:
+#   ansible-playbook -i inventory.ini monitoring.yml
+# ============================================================
+
+- name: Deploy BrainBrush Monitoring Stack
+  hosts: servers
+  become: true
+
+  vars:
+    app_dir: /home/ubuntu/brainbrush
+    monitoring_dir: /home/ubuntu/brainbrush/monitoring
+
+  tasks:
+    - name: Create monitoring directory structure
+      ansible.builtin.file:
+        path: "{{ item }}"
+        state: directory
+        owner: ubuntu
+        group: ubuntu
+        mode: "0755"
+      loop:
+        - "{{ monitoring_dir }}"
+        - "{{ monitoring_dir }}/prometheus"
+        - "{{ monitoring_dir }}/grafana/provisioning/datasources"
+        - "{{ monitoring_dir }}/grafana/provisioning/dashboards"
+        - "{{ monitoring_dir }}/grafana/dashboards"
+
+    - name: Copy Docker Compose monitoring file
+      ansible.builtin.copy:
+        src: ../monitoring/docker-compose.monitoring.yml
+        dest: "{{ monitoring_dir }}/docker-compose.monitoring.yml"
+        owner: ubuntu
+        group: ubuntu
+        mode: "0644"
+
+    - name: Copy Prometheus configuration
+      ansible.builtin.copy:
+        src: ../monitoring/prometheus/prometheus.yml
+        dest: "{{ monitoring_dir }}/prometheus/prometheus.yml"
+        owner: ubuntu
+        group: ubuntu
+        mode: "0644"
+
+    - name: Copy Prometheus alert rules
+      ansible.builtin.copy:
+        src: ../monitoring/prometheus/alert_rules.yml
+        dest: "{{ monitoring_dir }}/prometheus/alert_rules.yml"
+        owner: ubuntu
+        group: ubuntu
+        mode: "0644"
+
+    - name: Copy Grafana datasource provisioning
+      ansible.builtin.copy:
+        src: ../monitoring/grafana/provisioning/datasources/datasource.yml
+        dest: "{{ monitoring_dir }}/grafana/provisioning/datasources/datasource.yml"
+        owner: ubuntu
+        group: ubuntu
+        mode: "0644"
+
+    - name: Copy Grafana dashboard provisioning
+      ansible.builtin.copy:
+        src: ../monitoring/grafana/provisioning/dashboards/dashboard.yml
+        dest: "{{ monitoring_dir }}/grafana/provisioning/dashboards/dashboard.yml"
+        owner: ubuntu
+        group: ubuntu
+        mode: "0644"
+
+    - name: Copy Grafana dashboard JSON
+      ansible.builtin.copy:
+        src: ../monitoring/grafana/dashboards/brainbrush-dashboard.json
+        dest: "{{ monitoring_dir }}/grafana/dashboards/brainbrush-dashboard.json"
+        owner: ubuntu
+        group: ubuntu
+        mode: "0644"
+
+    - name: Stop existing monitoring stack (if running)
+      ansible.builtin.command:
+        cmd: docker compose -f docker-compose.monitoring.yml down
+        chdir: "{{ monitoring_dir }}"
+      ignore_errors: true
+
+    - name: Start monitoring stack
+      ansible.builtin.command:
+        cmd: docker compose -f docker-compose.monitoring.yml up -d
+        chdir: "{{ monitoring_dir }}"
+
+    - name: Wait for Prometheus to be ready
+      ansible.builtin.uri:
+        url: "http://localhost:9090/-/healthy"
+        status_code: 200
+        timeout: 5
+      register: prometheus_health
+      retries: 10
+      delay: 5
+      until: prometheus_health.status == 200
+      ignore_errors: true
+
+    - name: Wait for Grafana to be ready
+      ansible.builtin.uri:
+        url: "http://localhost:3000/api/health"
+        status_code: 200
+        timeout: 5
+      register: grafana_health
+      retries: 10
+      delay: 5
+      until: grafana_health.status == 200
+      ignore_errors: true
+
+    - name: Print monitoring stack status
+      ansible.builtin.debug:
+        msg: |
+          ✅ Monitoring stack deployed!
+          📊 Prometheus: http://{{ ansible_host }}:9090
+          📈 Grafana:    http://{{ ansible_host }}:3000 (admin / brainbrush)
+          🖥️  Node Exp:   http://{{ ansible_host }}:9100

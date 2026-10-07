@@ -1,0 +1,20 @@
+# ============================================================
+# Grafana Dashboard Provisioning
+# ============================================================
+# Tells Grafana where to find dashboard JSON files.
+# Dashboards are automatically loaded on startup.
+# ============================================================
+
+apiVersion: 1
+
+providers:
+  - name: "BrainBrush Dashboards"
+    orgId: 1
+    type: file
+    disableDeletion: false
+    editable: true
+    updateIntervalSeconds: 30          # Check for changes every 30 seconds
+    allowUiUpdates: true
+    options:
+      path: /var/lib/grafana/dashboards
+      foldersFromFilesStructure: false

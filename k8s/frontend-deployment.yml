@@ -1,0 +1,91 @@
+# ============================================================
+# BrainBrush Frontend — Kubernetes Deployment + Service
+# ============================================================
+#
+# Deployment: 2 replicas of the Nginx-served React frontend.
+# Service: LoadBalancer type to expose to the internet.
+# ============================================================
+
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: frontend
+  namespace: brainbrush
+  labels:
+    app: brainbrush
+    component: frontend
+spec:
+  replicas: 2                           # 2 instances for availability
+  selector:
+    matchLabels:
+      app: brainbrush
+      component: frontend
+  strategy:
+    type: RollingUpdate
+    rollingUpdate:
+      maxSurge: 1
+      maxUnavailable: 0
+  template:
+    metadata:
+      labels:
+        app: brainbrush
+        component: frontend
+    spec:
+      containers:
+        - name: frontend
+          image: caliber001/brainbrush-frontend:latest
+          ports:
+            - containerPort: 80
+              name: http
+
+          # Liveness probe: Check Nginx is serving
+          livenessProbe:
+            httpGet:
+              path: /
+              port: 80
+            initialDelaySeconds: 15
+            periodSeconds: 30
+            timeoutSeconds: 5
+            failureThreshold: 3
+
+          # Readiness probe: Check Nginx can serve requests
+          readinessProbe:
+            httpGet:
+              path: /
+              port: 80
+            initialDelaySeconds: 5
+            periodSeconds: 10
+            timeoutSeconds: 5
+            failureThreshold: 3
+
+          resources:
+            requests:
+              cpu: "100m"                 # Nginx is lightweight
+              memory: "128Mi"
+            limits:
+              cpu: "250m"
+              memory: "256Mi"
+
+---
+# ── Frontend Service ──
+# LoadBalancer: Exposes the frontend to the internet.
+# On AWS, this creates an Elastic Load Balancer automatically.
+
+apiVersion: v1
+kind: Service
+metadata:
+  name: frontend
+  namespace: brainbrush
+  labels:
+    app: brainbrush
+    component: frontend
+spec:
+  type: LoadBalancer
+  selector:
+    app: brainbrush
+    component: frontend
+  ports:
+    - port: 80
+      targetPort: 80
+      protocol: TCP
+      name: http

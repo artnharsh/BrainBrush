@@ -1,0 +1,123 @@
+# ============================================================
+# Prometheus Alert Rules (SRE-Aligned)
+# ============================================================
+#
+# These alerts are based on SRE principles:
+#   - SLI-based: Track indicators that directly affect users
+#   - Error budgets: Alert when burn rate threatens the SLO
+#   - Symptom-based: Focus on user-visible impact, not causes
+#
+# Alert severity levels:
+#   - critical: Immediate action required (pages on-call)
+#   - warning: Needs attention soon (next business day)
+# ============================================================
+
+groups:
+  # ── Application-Level Alerts ──
+  - name: brainbrush_application_alerts
+    rules:
+
+      # HIGH ERROR RATE
+      # SLO: 99% of requests should succeed (error budget: 1%)
+      # Alert if >5% of requests return 5xx errors over 5 minutes
+      - alert: HighErrorRate
+        expr: |
+          (
+            sum(rate(http_requests_total{status_code=~"5.."}[5m]))
+            /
+            sum(rate(http_requests_total[5m]))
+          ) * 100 > 5
+        for: 5m
+        labels:
+          severity: critical
+          team: backend
+        annotations:
+          summary: "High HTTP error rate detected"
+          description: "More than 5% of HTTP requests are returning 5xx errors for the last 5 minutes. Current error rate: {{ $value | printf \"%.2f\" }}%"
+          runbook: "Check backend logs, verify database connectivity, and review recent deployments."
+
+      # HIGH LATENCY (p95)
+      # SLO: 95th percentile latency should be under 1 second
+      # Alert if p95 exceeds 1 second for 5 minutes
+      - alert: HighLatency
+        expr: |
+          histogram_quantile(0.95,
+            sum(rate(http_request_duration_seconds_bucket[5m])) by (le)
+          ) > 1
+        for: 5m
+        labels:
+          severity: warning
+          team: backend
+        annotations:
+          summary: "High request latency detected"
+          description: "95th percentile request latency is above 1 second for the last 5 minutes. Current p95: {{ $value | printf \"%.3f\" }}s"
+          runbook: "Check for slow database queries, high CPU usage, or memory leaks."
+
+      # INSTANCE DOWN
+      # Alert if the backend target is unreachable for >1 minute
+      - alert: InstanceDown
+        expr: up{job="brainbrush-backend"} == 0
+        for: 1m
+        labels:
+          severity: critical
+          team: infrastructure
+        annotations:
+          summary: "BrainBrush backend is down"
+          description: "The backend instance {{ $labels.instance }} has been unreachable for more than 1 minute."
+          runbook: "SSH into EC2, check Docker container status (docker ps), review container logs (docker logs brainbrush-backend)."
+
+  # ── Infrastructure-Level Alerts ──
+  - name: brainbrush_infrastructure_alerts
+    rules:
+
+      # HIGH MEMORY USAGE
+      # Alert if available memory drops below 15% for 5 minutes
+      - alert: HighMemoryUsage
+        expr: |
+          (1 - (
+            node_memory_MemAvailable_bytes
+            /
+            node_memory_MemTotal_bytes
+          )) * 100 > 85
+        for: 5m
+        labels:
+          severity: warning
+          team: infrastructure
+        annotations:
+          summary: "High memory usage on host"
+          description: "Memory usage is above 85% for the last 5 minutes. Current usage: {{ $value | printf \"%.1f\" }}%"
+          runbook: "Check for memory leaks, consider scaling up the instance, or review container resource limits."
+
+      # HIGH CPU USAGE
+      # Alert if CPU usage exceeds 80% for 5 minutes
+      - alert: HighCpuUsage
+        expr: |
+          100 - (
+            avg(rate(node_cpu_seconds_total{mode="idle"}[5m])) * 100
+          ) > 80
+        for: 5m
+        labels:
+          severity: warning
+          team: infrastructure
+        annotations:
+          summary: "High CPU usage on host"
+          description: "CPU usage is above 80% for the last 5 minutes. Current usage: {{ $value | printf \"%.1f\" }}%"
+          runbook: "Identify CPU-intensive processes, check for traffic spikes, consider horizontal scaling."
+
+      # DISK SPACE RUNNING LOW
+      # Alert if disk usage exceeds 80%
+      - alert: DiskSpaceRunningLow
+        expr: |
+          (1 - (
+            node_filesystem_avail_bytes{mountpoint="/"}
+            /
+            node_filesystem_size_bytes{mountpoint="/"}
+          )) * 100 > 80
+        for: 5m
+        labels:
+          severity: warning
+          team: infrastructure
+        annotations:
+          summary: "Disk space running low"
+          description: "Disk usage on root filesystem is above 80%. Current usage: {{ $value | printf \"%.1f\" }}%"
+          runbook: "Run docker image prune -af, clean up old logs, review log rotation settings."

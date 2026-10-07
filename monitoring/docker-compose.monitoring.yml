@@ -1,0 +1,90 @@
+# ============================================================
+# BrainBrush Monitoring Stack
+# ============================================================
+#
+# Services:
+#   - Prometheus (port 9090): Metrics collection & alerting
+#   - Grafana (port 3000): Visualization dashboards
+#   - Node Exporter (port 9100): Host-level system metrics
+#
+# Usage:
+#   docker compose -f docker-compose.monitoring.yml up -d
+#
+# Access:
+#   Prometheus: http://localhost:9090
+#   Grafana:    http://localhost:3000 (admin / brainbrush)
+#   Node Exp:   http://localhost:9100/metrics
+# ============================================================
+
+services:
+  # ── Prometheus ──
+  # Scrapes metrics from the backend (/metrics) and Node Exporter
+  # every 15 seconds and stores them as time-series data.
+  prometheus:
+    image: prom/prometheus:latest
+    container_name: brainbrush-prometheus
+    restart: unless-stopped
+    ports:
+      - "9090:9090"
+    volumes:
+      - ./prometheus/prometheus.yml:/etc/prometheus/prometheus.yml:ro
+      - ./prometheus/alert_rules.yml:/etc/prometheus/alert_rules.yml:ro
+      - prometheus_data:/prometheus
+    command:
+      - "--config.file=/etc/prometheus/prometheus.yml"
+      - "--storage.tsdb.path=/prometheus"
+      - "--storage.tsdb.retention.time=15d"    # Keep 15 days of data
+      - "--web.enable-lifecycle"                # Allow config reload via API
+    networks:
+      - monitoring
+
+  # ── Grafana ──
+  # Visualization layer — auto-provisioned with Prometheus data source
+  # and a pre-built BrainBrush dashboard.
+  grafana:
+    image: grafana/grafana:latest
+    container_name: brainbrush-grafana
+    restart: unless-stopped
+    ports:
+      - "3000:3000"
+    environment:
+      - GF_SECURITY_ADMIN_USER=admin
+      - GF_SECURITY_ADMIN_PASSWORD=brainbrush
+      - GF_USERS_ALLOW_SIGN_UP=false
+    volumes:
+      - grafana_data:/var/lib/grafana
+      - ./grafana/provisioning:/etc/grafana/provisioning:ro
+      - ./grafana/dashboards:/var/lib/grafana/dashboards:ro
+    depends_on:
+      - prometheus
+    networks:
+      - monitoring
+
+  # ── Node Exporter ──
+  # Exposes host-level system metrics (CPU, memory, disk, network)
+  # to Prometheus. Essential for infrastructure monitoring.
+  node-exporter:
+    image: prom/node-exporter:latest
+    container_name: brainbrush-node-exporter
+    restart: unless-stopped
+    ports:
+      - "9100:9100"
+    volumes:
+      - /proc:/host/proc:ro
+      - /sys:/host/sys:ro
+      - /:/rootfs:ro
+    command:
+      - "--path.procfs=/host/proc"
+      - "--path.rootfs=/rootfs"
+      - "--path.sysfs=/host/sys"
+      - "--collector.filesystem.mount-points-exclude=^/(sys|proc|dev|host|etc)($$|/)"
+    networks:
+      - monitoring
+
+networks:
+  monitoring:
+    driver: bridge
+
+volumes:
+  prometheus_data:
+  grafana_data:

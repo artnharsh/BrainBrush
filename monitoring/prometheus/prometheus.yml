@@ -1,0 +1,58 @@
+# ============================================================
+# Prometheus Configuration
+# ============================================================
+#
+# Prometheus scrapes (pulls) metrics from targets at regular intervals.
+# Each target exposes metrics in a text-based format at a /metrics endpoint.
+#
+# Scrape targets:
+#   1. Prometheus itself (self-monitoring)
+#   2. BrainBrush backend (application metrics via prom-client)
+#   3. Node Exporter (host system metrics — CPU, memory, disk)
+# ============================================================
+
+global:
+  scrape_interval: 15s       # How often Prometheus pulls metrics from targets
+  evaluation_interval: 15s   # How often alert rules are evaluated
+  scrape_timeout: 10s        # Max time to wait for a scrape response
+
+# ── Alert Rules ──
+# Loaded from a separate file for clean separation of concerns
+rule_files:
+  - "alert_rules.yml"
+
+# ── Scrape Targets ──
+scrape_configs:
+
+  # 1. Prometheus self-monitoring
+  # Prometheus exposes its own metrics (useful for debugging Prometheus itself)
+  - job_name: "prometheus"
+    static_configs:
+      - targets: ["localhost:9090"]
+        labels:
+          environment: "production"
+
+  # 2. BrainBrush Backend Application Metrics
+  # Scrapes custom metrics from our Express app's /metrics endpoint
+  # Includes: http_requests_total, http_request_duration_seconds,
+  #           websocket_connections_active, game_rooms_active, etc.
+  - job_name: "brainbrush-backend"
+    metrics_path: "/metrics"
+    static_configs:
+      - targets: ["host.docker.internal:5000"]    # Docker → host machine
+        labels:
+          service: "backend"
+          environment: "production"
+    # Fallback for Linux (host.docker.internal may not work)
+    # Uncomment if running on Linux without Docker Desktop:
+    # - targets: ["172.17.0.1:5000"]
+
+  # 3. Node Exporter — Host System Metrics
+  # Provides CPU, memory, disk, network, and filesystem metrics
+  # for infrastructure-level monitoring
+  - job_name: "node-exporter"
+    static_configs:
+      - targets: ["node-exporter:9100"]
+        labels:
+          service: "infrastructure"
+          environment: "production"

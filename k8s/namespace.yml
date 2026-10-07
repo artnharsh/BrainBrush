@@ -1,0 +1,14 @@
+# ============================================================
+# BrainBrush Kubernetes Namespace
+# ============================================================
+# Isolates all BrainBrush resources into their own namespace.
+# This prevents resource conflicts with other apps on the cluster.
+# ============================================================
+
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: brainbrush
+  labels:
+    app: brainbrush
+    managed-by: kubectl

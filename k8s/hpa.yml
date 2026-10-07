@@ -1,0 +1,71 @@
+# ============================================================
+# BrainBrush HorizontalPodAutoscaler (HPA)
+# ============================================================
+# Automatically scales the backend deployment based on CPU usage.
+#
+# How it works:
+#   1. HPA checks CPU utilization every 30 seconds (default)
+#   2. If average CPU across all pods > 70%, it adds more pods
+#   3. If average CPU drops, it removes pods (scale down)
+#   4. Bounded between minReplicas (3) and maxReplicas (10)
+#
+# Formula:
+#   desiredReplicas = ceil(currentReplicas × (currentCPU / targetCPU))
+#
+# Example:
+#   3 pods at 90% CPU → ceil(3 × (90/70)) = ceil(3.86) = 4 pods
+#
+# Prerequisites: Metrics Server must be installed in the cluster.
+#   kubectl apply -f https://github.com/kubernetes-sigs/metrics-server/releases/latest/download/components.yaml
+# ============================================================
+
+apiVersion: autoscaling/v2
+kind: HorizontalPodAutoscaler
+metadata:
+  name: backend-hpa
+  namespace: brainbrush
+  labels:
+    app: brainbrush
+    component: backend
+spec:
+  scaleTargetRef:
+    apiVersion: apps/v1
+    kind: Deployment
+    name: backend
+
+  minReplicas: 3                         # Never go below 3 pods
+  maxReplicas: 10                        # Never exceed 10 pods
+
+  metrics:
+    # Scale based on CPU utilization
+    - type: Resource
+      resource:
+        name: cpu
+        target:
+          type: Utilization
+          averageUtilization: 70         # Target: 70% average CPU across pods
+
+    # Also consider memory utilization
+    - type: Resource
+      resource:
+        name: memory
+        target:
+          type: Utilization
+          averageUtilization: 80         # Target: 80% average memory
+
+  behavior:
+    # Scale UP quickly (respond to traffic spikes)
+    scaleUp:
+      stabilizationWindowSeconds: 60     # Wait 60s before scaling up again
+      policies:
+        - type: Pods
+          value: 2                       # Add up to 2 pods at a time
+          periodSeconds: 60
+
+    # Scale DOWN slowly (avoid flapping)
+    scaleDown:
+      stabilizationWindowSeconds: 300    # Wait 5 minutes before scaling down
+      policies:
+        - type: Pods
+          value: 1                       # Remove only 1 pod at a time
+          periodSeconds: 120

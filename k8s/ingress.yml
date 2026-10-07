@@ -1,0 +1,89 @@
+# ============================================================
+# BrainBrush Ingress — HTTP Routing
+# ============================================================
+# Ingress acts as a reverse proxy / API gateway that routes
+# external HTTP traffic to the correct internal services.
+#
+# Routing rules:
+#   brainbrush.example.com/             → frontend (port 80)
+#   brainbrush.example.com/api/*        → backend  (port 5000)
+#   brainbrush.example.com/auth/*       → backend  (port 5000)
+#   brainbrush.example.com/health       → backend  (port 5000)
+#   brainbrush.example.com/metrics      → backend  (port 5000)
+#   brainbrush.example.com/socket.io/*  → backend  (port 5000)
+#
+# Prerequisites: An Ingress Controller must be installed
+# (e.g., nginx-ingress, AWS ALB Ingress Controller)
+# ============================================================
+
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: brainbrush-ingress
+  namespace: brainbrush
+  labels:
+    app: brainbrush
+  annotations:
+    nginx.ingress.kubernetes.io/rewrite-target: /
+    # WebSocket support for Socket.IO
+    nginx.ingress.kubernetes.io/proxy-read-timeout: "3600"
+    nginx.ingress.kubernetes.io/proxy-send-timeout: "3600"
+    nginx.ingress.kubernetes.io/websocket-services: "backend"
+spec:
+  ingressClassName: nginx
+  rules:
+    - host: brainbrush.example.com       # Replace with your actual domain
+      http:
+        paths:
+          # Backend API routes
+          - path: /api
+            pathType: Prefix
+            backend:
+              service:
+                name: backend
+                port:
+                  number: 5000
+
+          # Authentication routes
+          - path: /auth
+            pathType: Prefix
+            backend:
+              service:
+                name: backend
+                port:
+                  number: 5000
+
+          # Health check & metrics
+          - path: /health
+            pathType: Exact
+            backend:
+              service:
+                name: backend
+                port:
+                  number: 5000
+
+          - path: /metrics
+            pathType: Exact
+            backend:
+              service:
+                name: backend
+                port:
+                  number: 5000
+
+          # Socket.IO WebSocket connections
+          - path: /socket.io
+            pathType: Prefix
+            backend:
+              service:
+                name: backend
+                port:
+                  number: 5000
+
+          # Frontend (catch-all — must be LAST)
+          - path: /
+            pathType: Prefix
+            backend:
+              service:
+                name: frontend
+                port:
+                  number: 80
