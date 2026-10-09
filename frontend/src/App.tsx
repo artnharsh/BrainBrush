@@ -16,7 +16,7 @@ function App() {
     if (token) {
       try {
         const payload = JSON.parse(atob(token.split(".")[1]));
-        
+
         // Synchronously update the global store
         setAuth({ id: payload.id, username: payload.username || "Player" }, token);
       } catch (err) {
