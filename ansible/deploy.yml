@@ -10,6 +10,15 @@
     docker_image_tag: "latest"
 
   tasks:
+
+    - name: Ensure application directory exists
+      ansible.builtin.file:
+        path: "{{ app_dir }}"
+        state: directory
+        owner: ubuntu
+        group: ubuntu
+        mode: "0755"
+
     - name: Copy production Docker Compose file to server
       ansible.builtin.template:
         src: templates/docker-compose.prod.yml.j2
@@ -58,7 +67,7 @@
 
     - name: Wait for backend to be ready
       ansible.builtin.uri:
-        url: "http://localhost:5000"
+        url: "http://localhost:5000/health"
         status_code: [200, 404]    # Accept 404 too — root route might not exist
         timeout: 5
       register: health_check

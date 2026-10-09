@@ -164,7 +164,12 @@ resource "aws_instance" "brainbrush_server" {
   }
 }
 
-resource "aws_eip_association" "brainbrush_eip_assoc" {
-  allocation_id = "eipalloc-005fc4eedf3d88b24"
-  instance_id   = aws_instance.brainbrush_server.id
+# Attach a static Elastic IP so the public IP never changes across restarts
+resource "aws_eip" "brainbrush_eip" {
+  instance = aws_instance.brainbrush_server.id
+  domain   = "vpc"
+
+  tags = {
+    Name = "${var.project_name}-eip"
+  }
 }
