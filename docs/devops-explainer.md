@@ -17,6 +17,7 @@
 9. [Tools Summary Table](#9-tools-summary-table)
 10. [Common Viva Questions & Answers](#10-common-viva-questions--answers)
 11. [Commands Cheat Sheet](#11-commands-cheat-sheet)
+12. [Troubleshooting & Gotchas](#12-troubleshooting--gotchas)
 
 ---
 
@@ -121,13 +122,16 @@ We've wrapped this application in a **complete DevOps lifecycle**:
 
 #### Stage 4: Containerize
 ```yaml
-- uses: docker/build-push-action@v5
+- uses: docker/build-push-action@v6
   with:
+    context: ./frontend
     tags: |
-      caliber001/brainbrush-backend:latest
-      caliber001/brainbrush-backend:${{ github.sha }}
+      caliber001/brainbrush-frontend:latest
+      caliber001/brainbrush-frontend:${{ github.sha }}
+    build-args: |
+      VITE_API_BASE_URL=${{ secrets.BACKEND_URL }}
 ```
-**What happens**: Docker builds images using our Dockerfiles, then pushes them to Docker Hub.
+**What happens**: Docker Buildx builds images using our Dockerfiles, then pushes them to Docker Hub. We pass `VITE_API_BASE_URL` as a build argument so the React app knows where the backend lives.
 
 **Two tags**:
 - `:latest` — always the newest build (used by default)
@@ -137,19 +141,24 @@ We've wrapped this application in a **complete DevOps lifecycle**:
 
 #### Stage 5: Deploy
 ```yaml
-- uses: appleboy/ssh-action@v1    # SSHs into EC2
-  script: |
-    docker pull ...               # Pull new images
-    docker compose down           # Stop old containers
-    docker compose up -d          # Start new containers
+- name: Deploy application with Ansible
+  run: |
+    ansible-playbook -i "$RUNNER_TEMP/inventory.ini" ansible/deploy.yml \
+      --extra-vars "@$RUNNER_TEMP/ansible-vars.json"
 ```
-**What happens**: The pipeline SSHs into our EC2 server, pulls the latest Docker images from Docker Hub, and restarts the containers.
+**What happens**: Instead of running raw Docker commands, the pipeline installs Ansible on the GitHub runner, securely sets up SSH keys, and runs our `ansible/deploy.yml` playbook. The playbook logs into the EC2 server, pulls the new images, and safely restarts the containers using Docker Compose.
 
 #### Stage 6: Verify
 ```yaml
-- run: curl http://$EC2_HOST:5000/health
+- run: |
+    for attempt in $(seq 1 12); do
+      status=$(curl --silent --write-out '%{http_code}' "${BACKEND_URL}/health")
+      if [ "$status" = "200" ]; then exit 0; fi
+      sleep 5
+    done
+    exit 1
 ```
-**What happens**: After deployment, we hit the `/health` endpoint. If it returns 200, the deployment succeeded. If not, we know something went wrong.
+**What happens**: After deployment, a retry loop repeatedly hits the `/health` endpoint (up to 12 times). If it returns `200 OK`, the deployment succeeded. If it times out or returns an error, the pipeline fails, alerting us that the deployment broke production.
 
 ---
 
@@ -177,14 +186,19 @@ CMD ["npm", "start"]         # Start the server
 ```dockerfile
 # STAGE 1: Build
 FROM node:22-alpine as build
+COPY package*.json ./
+RUN npm install
 COPY . .
-RUN npm run build            # Outputs to /dist
+ARG VITE_API_BASE_URL                 # Inject backend URL at build time
+ENV VITE_API_BASE_URL=$VITE_API_BASE_URL
+RUN npm run build                     # Outputs to /dist
 
 # STAGE 2: Serve
-FROM nginx:alpine            # Tiny web server
+FROM nginx:alpine                     # Tiny web server
+COPY nginx.conf /etc/nginx/conf.d/default.conf # Custom routing rules
 COPY --from=build /app/dist /usr/share/nginx/html
 ```
-**Why multi-stage?** The build stage needs Node.js (large image ~300MB). The serve stage only needs Nginx (tiny ~25MB). We copy just the built files, resulting in a much smaller final image.
+**Why multi-stage?** The build stage needs Node.js (large image ~300MB). The serve stage only needs Nginx (tiny ~25MB). We copy just the built files and our custom `nginx.conf`, resulting in a much smaller and more secure final image.
 
 ### Docker Compose vs Kubernetes
 
@@ -606,3 +620,23 @@ up{job="brainbrush-backend"}
 # Memory usage (%)
 (1 - (node_memory_MemAvailable_bytes / node_memory_MemTotal_bytes)) * 100
 ```
+
+---
+
+## 12. Troubleshooting & Gotchas
+
+### 1. The Double Slash (`//`) Redirect Bug
+**The Problem**: After logging in via Google OAuth, the user is redirected to `http://<IP>.nip.io//auth/success?token=...` with an unexpected double slash (`//`), breaking the URL or looking unprofessional.
+**The Cause**: The `FRONTEND_URL` in GitHub Actions Secrets was saved with a trailing slash (e.g., `http://15.206.83.116.nip.io/`). In the backend, the redirect URL is constructed as `${process.env.FRONTEND_URL}/auth/success`. When concatenated, `...nip.io/` + `/auth/success` creates the double slash.
+**The Fix**: Remove the trailing slash from the GitHub Actions Secret. Best practice: sanitize the environment variable in code using `.replace(/\/+$/, "")` so it never breaks, even if misconfigured.
+
+### 2. CORS Origin Mismatch
+**The Problem**: Browser blocks frontend requests to the backend with a CORS error.
+**The Cause**: The `ALLOWED_ORIGINS` environment variable was set with a trailing slash, but browsers send the `Origin` header without one. Exact string matching fails, so the backend rejects the request.
+**The Fix**: Trim trailing slashes from allowed origins when configuring the Express CORS middleware.
+
+### 3. Connection Refused / Timeouts on Deployment
+**The Problem**: Ansible deployment fails with `Connection reset by peer` or `Status code was -1` when waiting for the backend to be ready.
+**The Cause**: The playbook is trying to hit `http://localhost:5000/health` immediately after `docker compose up -d`, but the container is still starting, or the new images haven't been pushed to Docker Hub yet (if running the playbook manually before GitHub Actions finishes building).
+**The Fix**: Add retries/delays in the Ansible task, and ensure the CI/CD pipeline pushes the image before triggering the Ansible deployment.
+
