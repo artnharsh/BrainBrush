@@ -163,3 +163,13 @@ resource "aws_instance" "brainbrush_server" {
     ManagedBy   = "terraform"
   }
 }
+
+# Attach a static Elastic IP so the public IP never changes across restarts
+resource "aws_eip" "brainbrush_eip" {
+  instance = aws_instance.brainbrush_server.id
+  domain   = "vpc"
+
+  tags = {
+    Name = "${var.project_name}-eip"
+  }
+}
