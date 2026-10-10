@@ -12,9 +12,9 @@
 # ============================================================
 
 global:
-  scrape_interval: 15s       # How often Prometheus pulls metrics from targets
-  evaluation_interval: 15s   # How often alert rules are evaluated
-  scrape_timeout: 10s        # Max time to wait for a scrape response
+  scrape_interval: 120s       # How often Prometheus pulls metrics from targets
+  evaluation_interval: 120s   # How often alert rules are evaluated
+  scrape_timeout: 30s        # Max time to wait for a scrape response
 
 # ── Alert Rules ──
 # Loaded from a separate file for clean separation of concerns
