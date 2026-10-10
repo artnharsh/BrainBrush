@@ -35,6 +35,10 @@ services:
       - "--storage.tsdb.path=/prometheus"
       - "--storage.tsdb.retention.time=15d"    # Keep 15 days of data
       - "--web.enable-lifecycle"                # Allow config reload via API
+    deploy:
+      resources:
+        limits:
+          memory: 200M
     networks:
       - monitoring
 
@@ -57,6 +61,10 @@ services:
       - ./grafana/dashboards:/var/lib/grafana/dashboards:ro
     depends_on:
       - prometheus
+    deploy:
+      resources:
+        limits:
+          memory: 200M
     networks:
       - monitoring
 
