@@ -110,7 +110,7 @@ We've wrapped this application in a **complete DevOps lifecycle**:
 
 #### Stage 3: Test
 ```yaml
-- run: npm test                   # Runs Jest unit tests
+- run: npm test                   # Runs Jest unit tests 
 ```
 **What happens**: Jest runs all `*.test.ts` files. We test:
 - Health endpoint returns correct JSON shape
