@@ -19,11 +19,16 @@ This guide provides a step-by-step script for demonstrating the DevOps features 
 ```bash
 # From the root of your project
 docker compose up --build -d
+
+# Show the running containers and their ports
 docker ps
+
+# Show live resource usage (CPU/RAM) of the containers
+docker stats
 ```
 
 **What to say to the teacher:**
-> *"First, I have containerized the entire application using Docker. As you can see by running `docker ps`, our backend, frontend, MongoDB, and Redis are all running in isolated containers via Docker Compose. This ensures environment consistency across development and production."*
+> *"First, I have containerized the entire application. As you can see by running `docker ps` and `docker stats`, our backend, frontend, MongoDB, and Redis are all running in isolated, lightweight containers via Docker Compose. This ensures environment consistency across development and production."*
 
 **Visual Proof:** 
 Open your browser and go to `http://localhost` (or `http://localhost:5173` depending on your setup) to show the game is actually running.
@@ -76,16 +81,28 @@ docker compose -f docker-compose.monitoring.yml up -d
 ---
 
 ## Step 4: Demonstrate Kubernetes Orchestration
-**Context to explain:** While Docker Compose is great for local dev, Kubernetes is used for production scale.
+**Commands to run in terminal (Requires Minikube or a K8s cluster running):**
+```bash
+# 1. Apply all Kubernetes configurations to the cluster
+kubectl apply -f k8s/
+
+# 2. Show the teacher the running pods
+kubectl get pods -n brainbrush
+
+# 3. Show the services (Internal Load Balancers)
+kubectl get svc -n brainbrush
+
+# 4. Show the Horizontal Pod Autoscaler (Auto-scaling)
+kubectl get hpa -n brainbrush
+```
 
 **What to say to the teacher:**
-> *"To handle high traffic, I designed a complete Kubernetes architecture for the application, including Horizontal Pod Auto-scaling."*
+> *"To handle high production traffic, I designed a Kubernetes architecture. By running `kubectl get pods`, you can see multiple replicas of our backend running. If we look at `kubectl get hpa`, you'll see the autoscaler is configured to spin up to 10 pods automatically if CPU usage crosses 70%."*
 
-**Visual Proof (in your IDE):**
-1. Open `k8s/backend-deployment.yml` and point out the `livenessProbe` and `readinessProbe` — explain that K8s uses the `/health` endpoint we built to know if it needs to restart a crashed container automatically.
-2. Open `k8s/hpa.yml` — explain that this file tells Kubernetes to automatically scale the backend from 3 pods up to 10 pods if CPU usage exceeds 70%.
-
-*(If you have Minikube installed and running locally, you can also run `kubectl apply -f k8s/` and `kubectl get pods -n brainbrush` to show them running).*
+**Visual Proof:**
+1. **Run the commands above** in your terminal. Point out the `STATUS: Running` for the pods to prove it works.
+2. **Point to the HPA output** where it shows `MINPODS: 3`, `MAXPODS: 10`, and `TARGETS: <unknown>/70%`. Explain that this is how modern apps survive traffic spikes.
+3. **Open `k8s/backend-deployment.yml`** in your IDE and point out the `livenessProbe`. Explain that K8s uses the `/health` endpoint we built to detect if the app freezes, and automatically kills and restarts the container with zero human intervention.
 
 ---
 
@@ -93,9 +110,10 @@ docker compose -f docker-compose.monitoring.yml up -d
 **Context to explain:** This covers the final syllabus requirement regarding SLIs, SLOs, and Error Budgets.
 
 **What to say to the teacher:**
-> *"Finally, as part of the observability and reliability requirements, I defined formal SRE practices for the team."*
+> *"Finally, as part of the observability and reliability requirements, I defined formal Site Reliability Engineering (SRE) practices. We don't just guess if the app is reliable; we measure it."*
 
 **Visual Proof:**
-1. Open the `docs/sre-practices.md` file in your IDE (use Markdown preview mode if possible).
-2. Show the **SLO Table** — explain that we target **99.9% uptime**, which gives us an **Error Budget** of ~43 minutes of downtime per month.
-3. Open `monitoring/prometheus/alert_rules.yml` — show how Prometheus is configured to automatically alert the on-call engineer if the Error Rate exceeds 5% or if the server goes down.
+1. Open the `docs/sre-practices.md` file in your IDE (use Markdown preview mode).
+2. Show the **SLO Table** — explain that we target **99.9% uptime**, which gives us a strict **Error Budget** of ~43.2 minutes of downtime per month.
+3. Open `monitoring/prometheus/alert_rules.yml` — show how Prometheus is configured to automatically alert the on-call engineer if the Error Rate exceeds 5% or if a server runs out of disk space.
+4. **Live Alert Demo:** Open `http://localhost:9090/alerts` in your browser to show the teacher the actual Prometheus alerting engine running live with your custom rules loaded!

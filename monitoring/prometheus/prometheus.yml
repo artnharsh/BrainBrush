@@ -39,13 +39,11 @@ scrape_configs:
   - job_name: "brainbrush-backend"
     metrics_path: "/metrics"
     static_configs:
-      - targets: ["host.docker.internal:5000"]    # Docker → host machine
+      # Use the Docker bridge IP for Linux environments (EC2) instead of host.docker.internal
+      - targets: ["172.17.0.1:5000"]
         labels:
           service: "backend"
           environment: "production"
-    # Fallback for Linux (host.docker.internal may not work)
-    # Uncomment if running on Linux without Docker Desktop:
-    # - targets: ["172.17.0.1:5000"]
 
   # 3. Node Exporter — Host System Metrics
   # Provides CPU, memory, disk, network, and filesystem metrics
