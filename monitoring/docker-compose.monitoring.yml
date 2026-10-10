@@ -38,7 +38,7 @@ services:
     deploy:
       resources:
         limits:
-          memory: 200M
+          memory: 300M
     networks:
       - monitoring
 
@@ -64,7 +64,7 @@ services:
     deploy:
       resources:
         limits:
-          memory: 200M
+          memory: 300M
     networks:
       - monitoring
 
