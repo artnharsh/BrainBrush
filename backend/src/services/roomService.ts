@@ -1,4 +1,5 @@
 import redis from "../config/redis";
+import { gameRoomsActive } from "../config/metrics";
 
 interface RoomCreationResult {
   roomCode: string;
@@ -34,6 +35,9 @@ export const createRoomRedis = async (userId: string): Promise<RoomCreationResul
   await redis.expire(`room:${roomCode}:host`, ROOM_TTL);
   await redis.expire(`room:${roomCode}:players`, ROOM_TTL);
 
+  // Track active room in Prometheus
+  gameRoomsActive.inc();
+
   // Return as an object so `const { roomCode } = await createRoom()` works
   return { roomCode, players: [userId] };
 };
@@ -62,6 +66,7 @@ export const leaveRoomRedis = async (roomCode: string, userId: string): Promise<
   if (players.length === 0) {
     await redis.del(`room:${roomCode}:players`);
     await redis.del(`room:${roomCode}:host`);
+    gameRoomsActive.dec();
   } else {
     // The room is still alive. Did the Host just leave?
     const currentHost = await redis.get(`room:${roomCode}:host`);

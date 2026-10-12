@@ -115,3 +115,24 @@ spec:
       targetPort: 5000
       protocol: TCP
       name: http
+
+---
+# ── Additional Service alias for frontend Nginx upstream ──
+apiVersion: v1
+kind: Service
+metadata:
+  name: brainbrush-backend
+  namespace: brainbrush
+  labels:
+    app: brainbrush
+    component: backend
+spec:
+  type: ClusterIP
+  selector:
+    app: brainbrush
+    component: backend
+  ports:
+    - port: 5000
+      targetPort: 5000
+      protocol: TCP
+      name: http

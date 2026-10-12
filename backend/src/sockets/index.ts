@@ -2,6 +2,7 @@ import { Server } from "socket.io";
 import jwt, { JwtPayload } from "jsonwebtoken";
 import { JWT_SECRET } from "../config/env";
 import { AuthenticatedSocket, AuthenticatedUser } from "../types/socketTypes";
+import { websocketConnectionsActive } from "../config/metrics";
 import { roomSocket } from "./roomSocket";
 import { drawingSocket } from "./drawingSocket";
 import { gameSocket } from "./gameSocket";
@@ -51,6 +52,9 @@ export const initSocket = (io: Server): void => {
     const userId = socket.user?.id;
     console.log("User connected:", userId);
 
+    // Update active WebSocket Prometheus metric
+    websocketConnectionsActive.set(io.engine.clientsCount);
+
     // Duplicate session detection: kick the old connection
     if (userId && activeSessions.has(userId)) {
       const oldSocketId = activeSessions.get(userId)!;
@@ -76,6 +80,9 @@ export const initSocket = (io: Server): void => {
 
     socket.on("disconnect", () => {
       console.log("User disconnected:", userId);
+      // Update active WebSocket Prometheus metric
+      websocketConnectionsActive.set(Math.max(0, io.engine.clientsCount));
+
       // Only remove from activeSessions if THIS socket is still the active one
       // (prevents a race where the new socket registers, then the old one disconnects)
       if (userId && activeSessions.get(userId) === socket.id) {
